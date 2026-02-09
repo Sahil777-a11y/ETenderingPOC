@@ -3,10 +3,8 @@ import type { Template, SectionConfig, SectionType } from './types';
 
 // Section type options
 const SECTION_TYPES: { label: string; value: SectionType }[] = [
-  { label: 'Text', value: 'text' },
-  { label: 'Rich Text', value: 'rich-text' },
-  { label: 'Date', value: 'date' },
-  { label: 'Table', value: 'table' },
+  { label: 'Question', value: 'text' },
+  { label: 'Statement', value: 'statement' },
 ];
 
 interface TemplateBuilderProps {
@@ -26,7 +24,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ templates: _te
   const [templateName, setTemplateName] = useState('');
   const [sections, setSections] = useState<SectionConfig[]>([]);
 
-  const addSection = () => setSections([...sections, { ...emptySection(), id: `section-${Date.now()}` }]);
+  const addSection = (type: SectionType) => setSections([...sections, { ...emptySection(), id: `section-${Date.now()}`, type }]);
   const removeSection = (idx: number) => setSections(sections.filter((_, i) => i !== idx));
   const moveSection = (idx: number, dir: -1 | 1) => {
     const newSections = [...sections];
@@ -54,52 +52,77 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ templates: _te
   };
 
   return (
-    <div>
-      <h2>Create/Edit RFP Template</h2>
+    <div style={{ maxWidth: 600, margin: '0 auto', background: '#f8fafc', borderRadius: 16, boxShadow: '0 2px 16px rgba(60,60,120,0.08)', padding: 32 }}>
+      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16, color: '#334155' }}>Create a New Template</h2>
       <input
+        style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #cbd5e1', marginBottom: 20, fontSize: 16 }}
         placeholder="Template Name"
         value={templateName}
         onChange={e => setTemplateName(e.target.value)}
       />
-      <button onClick={addSection}>Add Section</button>
-      <ul>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+        <button style={{ flex: 1, padding: 10, borderRadius: 8, background: '#6366f1', color: 'white', fontWeight: 600, border: 'none' }} onClick={() => addSection('text')}>+ Add Question</button>
+        <button style={{ flex: 1, padding: 10, borderRadius: 8, background: '#0ea5e9', color: 'white', fontWeight: 600, border: 'none' }} onClick={() => addSection('statement')}>+ Add Statement</button>
+      </div>
+      <ul style={{ listStyle: 'none', padding: 0 }}>
         {sections.map((section, idx) => (
-          <li key={section.id} style={{ marginBottom: 16, border: '1px solid #ccc', padding: 8 }}>
-            <input
-              placeholder="Section Title"
-              value={section.title}
-              onChange={e => updateSection(idx, 'title', e.target.value)}
-            />
-            <select
-              value={section.type}
-              onChange={e => updateSection(idx, 'type', e.target.value as SectionType)}
-            >
-              {SECTION_TYPES.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            <label>
-              Editable
+          <li key={section.id} style={{ marginBottom: 20, border: '1px solid #cbd5e1', borderRadius: 10, background: 'white', padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontWeight: 600, color: section.type === 'text' ? '#6366f1' : '#0ea5e9', marginRight: 12 }}>
+                {section.type === 'text' ? 'Question' : 'Statement'}
+              </span>
               <input
-                type="checkbox"
-                checked={section.editable}
-                onChange={e => updateSection(idx, 'editable', e.target.checked)}
+                style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #e5e7eb', marginRight: 8 }}
+                placeholder={section.type === 'text' ? 'Question Title' : 'Statement Title'}
+                value={section.title}
+                onChange={e => updateSection(idx, 'title', e.target.value)}
+                // Statement title is now editable
               />
-            </label>
-            <button disabled={idx === 0} onClick={() => moveSection(idx, -1)}>↑</button>
-            <button disabled={idx === sections.length - 1} onClick={() => moveSection(idx, 1)}>↓</button>
-            <button onClick={() => removeSection(idx)}>Remove</button>
-            <div>
-              <textarea
-                placeholder="Default Content"
-                value={typeof section.content === 'string' ? section.content : ''}
-                onChange={e => updateSection(idx, 'content', e.target.value)}
-              />
+              <button style={{ marginRight: 4 }} disabled={idx === 0} onClick={() => moveSection(idx, -1)} title="Move Up">↑</button>
+              <button style={{ marginRight: 4 }} disabled={idx === sections.length - 1} onClick={() => moveSection(idx, 1)} title="Move Down">↓</button>
+              <button style={{ color: '#ef4444' }} onClick={() => removeSection(idx)} title="Remove">✕</button>
             </div>
+            {section.type === 'text' && (
+              <div style={{ marginBottom: 8 }}>
+                <textarea
+                  style={{ width: '100%', minHeight: 40, borderRadius: 6, border: '1px solid #e5e7eb', padding: 8, fontSize: 15 }}
+                  placeholder="Default Content (optional)"
+                  value={typeof section.content === 'string' ? section.content : ''}
+                  onChange={e => updateSection(idx, 'content', e.target.value)}
+                />
+              </div>
+            )}
+            {section.type === 'statement' && (
+              <div style={{ marginBottom: 8 }}>
+                <textarea
+                  style={{ width: '100%', minHeight: 40, borderRadius: 6, border: '1px solid #e5e7eb', padding: 8, fontSize: 15, background: '#f1f5f9' }}
+                  placeholder="Statement Content"
+                  value={typeof section.content === 'string' ? section.content : ''}
+                  onChange={e => updateSection(idx, 'content', e.target.value)}
+                />
+              </div>
+            )}
+            {section.type === 'text' && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: '#64748b' }}>
+                <input
+                  type="checkbox"
+                  checked={section.editable}
+                  onChange={e => updateSection(idx, 'editable', e.target.checked)}
+                />
+                Editable by user
+              </label>
+            )}
+            {section.type === 'statement' && (
+              <label style={{ fontSize: 14, color: '#64748b' }}>Static Content</label>
+            )}
           </li>
         ))}
       </ul>
-      <button onClick={saveTemplate} disabled={!templateName.trim() || sections.length === 0}>
+      <button
+        style={{ width: '100%', padding: 12, borderRadius: 8, background: '#22c55e', color: 'white', fontWeight: 700, fontSize: 17, border: 'none', marginTop: 12 }}
+        onClick={saveTemplate}
+        disabled={!templateName.trim() || sections.length === 0}
+      >
         Save Template
       </button>
     </div>
