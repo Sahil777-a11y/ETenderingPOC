@@ -52,7 +52,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ templates: _te
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', background: '#f8fafc', borderRadius: 16, boxShadow: '0 2px 16px rgba(60,60,120,0.08)', padding: 32 }}>
+    <div style={{ position: 'absolute', left: '16rem', top: 0, width: 'calc(100vw - 16rem)', minHeight: '100vh', background: '#f8fafc', borderRadius: 0, boxShadow: 'none', padding: '2.5rem 2rem', zIndex: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
         <h2 style={{ fontSize: 24, fontWeight: 700, color: '#334155', margin: 0 }}>Create a New Template</h2>
         <select

@@ -12,6 +12,7 @@ type View = 'admin' | 'user' | 'preview' | 'dashboard';
 function App() { 
   const [view, setView] = React.useState<View>('admin');
   const [showTemplateBuilder, setShowTemplateBuilder] = React.useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState<string | null>(null);
   const [templates, setTemplates] = React.useState<Template[]>([]);
   const [selectedInstance, setSelectedInstance] = React.useState<RfpInstance | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -136,8 +137,6 @@ function App() {
                 >
                   Start from a Template
                 </button>
-                {/* <button style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #e0e7ff', background: '#f8fafc', color: '#64748b' }} disabled>Blank Strategic Sourcing</button>
-                <button style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #e0e7ff', background: '#f8fafc', color: '#64748b' }} disabled>Blank Price Only</button> */}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <button onClick={() => setShowProjectModal(false)} style={{ marginRight: 8 }}>Cancel</button>
