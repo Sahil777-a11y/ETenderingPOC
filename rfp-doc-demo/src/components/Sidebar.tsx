@@ -6,12 +6,12 @@ import { HamburgerMenuIcon, HomeIcon, PersonIcon, ArchiveIcon, GlobeIcon, PaperP
 import { Cross2Icon } from '@radix-ui/react-icons';
 
 const sidebarItems = [
-  { label: 'Dashboard', icon: <HomeIcon />, disabled: false },
-  { label: 'Community', icon: <PersonIcon />, disabled: true },
-  { label: 'Projects', icon: <ArchiveIcon />, disabled: false, expandable: true },
-  { label: 'Library', icon: <ArchiveIcon />, disabled: true },
-  { label: 'Portal', icon: <GlobeIcon />, disabled: true },
-  { label: 'Submissions', icon: <PaperPlaneIcon />, disabled: true },
+  // { label: '', icon: <HomeIcon />, disabled: true },
+  // { label: 'Community', icon: <PersonIcon />, disabled: true },
+  { label: 'Templates', icon: <ArchiveIcon />, disabled: false, expandable: true },
+  // { label: 'Library', icon: <ArchiveIcon />, disabled: true },
+  // { label: 'Portal', icon: <GlobeIcon />, disabled: true },
+  // { label: 'Submissions', icon: <PaperPlaneIcon />, disabled: true },
 ];
 
 
@@ -68,7 +68,7 @@ export default function Sidebar({ myProjects = [] }: SidebarProps) {
         <ul className="space-y-1">
           {sidebarItems.map((item) => (
             <li key={item.label}>
-              {item.label === 'Projects' ? (
+              {item.label === 'Templates' ? (
                 <Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
                   <CollapsibleTrigger asChild>
                     <Button variant="sidebar" className="justify-between" disabled={item.disabled}>
@@ -80,17 +80,20 @@ export default function Sidebar({ myProjects = [] }: SidebarProps) {
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SidebarSection title="My Projects">
-                      <button
-                        className="w-full mb-2 px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-                        onClick={() => {
-                          if (window.openProjectCreation) {
-                            window.openProjectCreation();
-                          }
-                        }}
-                      >
-                        + Add New Project
-                      </button>
+                    <SidebarSection title="My Templates">
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                        <button
+                          className="px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                          style={{ whiteSpace: 'nowrap', width: '100%' }}
+                          onClick={() => {
+                            if (window.openProjectCreation) {
+                              window.openProjectCreation();
+                            }
+                          }}
+                        >
+                          + Create New Template
+                        </button>
+                      </div>
                       <ul className="space-y-1 mt-1">
                         {myProjects.map((proj) => (
                           <li key={proj.name} className="flex items-center">

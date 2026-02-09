@@ -11,6 +11,7 @@ type View = 'admin' | 'user' | 'preview' | 'dashboard';
 
 function App() { 
   const [view, setView] = React.useState<View>('admin');
+  const [showTemplateBuilder, setShowTemplateBuilder] = React.useState(false);
   const [templates, setTemplates] = React.useState<Template[]>([]);
   const [selectedInstance, setSelectedInstance] = React.useState<RfpInstance | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -111,8 +112,8 @@ function App() {
   // Navigation bar
   const Nav = () => (
     <nav style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-      <button onClick={() => setView('dashboard')}>Dashboard</button>
-      <button onClick={() => setView('admin')}>Projects</button>
+      {/* <button onClick={() => setView('dashboard')}>Dashboard</button>
+      <button onClick={() => setView('admin')}>Projects</button> */}
     </nav>
   );
 
@@ -123,11 +124,20 @@ function App() {
         {showProjectModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.12)', padding: 32, minWidth: 400, maxWidth: '90vw' }}>
-              <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Create Project Draft</h2>
+              {/* <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Create Project Draft</h2> */}
               <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-                <button style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #6366f1', background: '#f1f5f9', fontWeight: 600 }} onClick={() => setView('admin') || setShowProjectModal(false)}>Start from a Template</button>
-                <button style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #e0e7ff', background: '#f8fafc', color: '#64748b' }} disabled>Blank Strategic Sourcing</button>
-                <button style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #e0e7ff', background: '#f8fafc', color: '#64748b' }} disabled>Blank Price Only</button>
+                <button
+                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #6366f1', background: '#f1f5f9', fontWeight: 600 }}
+                  onClick={() => {
+                    setShowProjectModal(false);
+                    setView('admin');
+                    setShowTemplateBuilder(true);
+                  }}
+                >
+                  Start from a Template
+                </button>
+                {/* <button style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #e0e7ff', background: '#f8fafc', color: '#64748b' }} disabled>Blank Strategic Sourcing</button>
+                <button style={{ flex: 1, padding: 12, borderRadius: 8, border: '2px solid #e0e7ff', background: '#f8fafc', color: '#64748b' }} disabled>Blank Price Only</button> */}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <button onClick={() => setShowProjectModal(false)} style={{ marginRight: 8 }}>Cancel</button>
@@ -135,87 +145,88 @@ function App() {
             </div>
           </div>
         )}
-        <div style={{ maxWidth: 900, margin: '3rem auto', background: 'rgba(255,255,255,0.97)', borderRadius: 24, boxShadow: '0 8px 32px rgba(60,60,120,0.12)', padding: '2.5rem 2rem 2rem 2rem', border: '1px solid #e0e7ff' }}>
-          {view === 'dashboard' && (
-            <>
-              <h1 style={{ textAlign: 'center', fontWeight: 800, fontSize: 36, letterSpacing: '-1px', marginBottom: 8, background: 'linear-gradient(90deg, #6366f1 30%, #06b6d4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}></h1>
-              <p style={{ textAlign: 'center', color: '#64748b', marginBottom: 32, fontSize: 18 }}>Notifications: Vendor Forms</p>
-              {/* Notification section for vendor forms */}
-              <div style={{ marginBottom: 32, background: '#f1f5f9', borderRadius: 12, padding: 16 }}>
-                <h3 style={{ fontWeight: 700, fontSize: 20, marginBottom: 12 }}>Vendor Forms to Fill</h3>
-                <VendorForms />
-              </div>
-            </>
-          )}
-          {view === 'admin' && (
-            <>
-              <h1 style={{ textAlign: 'center', fontWeight: 800, fontSize: 36, letterSpacing: '-1px', marginBottom: 8, background: 'linear-gradient(90deg, #6366f1 30%, #06b6d4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Projects</h1>
-              <p style={{ textAlign: 'center', color: '#64748b', marginBottom: 32, fontSize: 18 }}>Create and manage project templates.</p>
-              <Nav />
-              {error && <div style={{ color: '#ef4444', marginBottom: 16, fontWeight: 600, textAlign: 'center' }}>Error: {error}</div>}
-              <TemplateBuilder templates={templates} onSave={handleSaveTemplate} />
-              {/* Master template listing */}
-              <div style={{ marginTop: 32 }}>
-                <h3 style={{ fontWeight: 700, fontSize: 22, marginBottom: 12 }}>Master Templates</h3>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                  {templates.map((t, idx) => (
-                    <li key={t.templateId} style={{ marginBottom: 12 }}>
-                      <button
-                        style={{ width: '100%', padding: 12, borderRadius: 8, background: '#e0e7ff', color: '#334155', fontWeight: 600, border: 'none', textAlign: 'left' }}
-                        onClick={() => setSelectedInstance({
-                          instanceId: `preview-${t.templateId}`,
-                          sourceTemplateId: t.templateId,
-                          sourceTemplateVersion: t.version,
-                          createdAt: t.createdAt,
-                          updatedAt: t.updatedAt,
-                          locked: true,
-                          sections: t.sections.map(s => ({
-                            ...s,
-                            instanceContent: s.content,
-                          })),
-                        }) || setView('preview')}
-                      >
-                        {t.name} (v{t.version})
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          )}
-          {view === 'user' && (
-            <RfpInstanceEditor templates={templates} onCreate={handleCreateInstance} />
-          )}
-          {view === 'preview' && selectedInstance && (
-            <>
-              <PreviewView instance={selectedInstance} />
-              <div style={{ display: 'flex', gap: 16, marginTop: 32 }}>
-                <button
-                  style={{ padding: '12px 24px', borderRadius: 8, border: '2px solid #22c55e', background: '#22c55e', color: 'white', fontWeight: 700, fontSize: 17, boxShadow: '0 2px 8px rgba(34,197,94,0.08)', transition: 'background 0.2s', marginRight: 8 }}
-                  onClick={() => {
-                    // Save vendor form instance to localStorage
-                    const vendorForms = JSON.parse(localStorage.getItem('vendor_forms') || '[]');
-                    vendorForms.push(selectedInstance);
-                    localStorage.setItem('vendor_forms', JSON.stringify(vendorForms));
-                    alert('Form saved for vendor!');
-                    setView('dashboard');
-                  }}
-                >
-                  Save for Vendor
-                </button>
-                <button
-                  style={{ padding: '12px 24px', borderRadius: 8, border: '2px solid #6366f1', background: '#f1f5f9', color: '#6366f1', fontWeight: 700, fontSize: 17, boxShadow: '0 2px 8px rgba(99,102,241,0.08)', transition: 'background 0.2s' }}
-                  onClick={() => setView('admin')}
-                >
-                  Back to Projects
-                </button>
-              </div>
-            </>
-          )}
-          {view === 'preview' && !selectedInstance && (
-            <div style={{ color: '#64748b', textAlign: 'center', marginTop: 32 }}>No RFP instance selected.</div>
-          )}
-        </div>
+        {!(view === 'admin' && !showTemplateBuilder) && (
+          <div style={{ maxWidth: 900, margin: '3rem auto', background: 'rgba(255,255,255,0.97)', borderRadius: 24, boxShadow: '0 8px 32px rgba(60,60,120,0.12)', padding: '2.5rem 2rem 2rem 2rem', border: '1px solid #e0e7ff' }}>
+            {/* {view === 'dashboard' && (
+              <>
+                <h1 style={{ textAlign: 'center', fontWeight: 800, fontSize: 36, letterSpacing: '-1px', marginBottom: 8, background: 'linear-gradient(90deg, #6366f1 30%, #06b6d4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}></h1>
+                <p style={{ textAlign: 'center', color: '#64748b', marginBottom: 32, fontSize: 18 }}>Notifications: Vendor Forms</p>
+                <div style={{ marginBottom: 32, background: '#f1f5f9', borderRadius: 12, padding: 16 }}>
+                  <h3 style={{ fontWeight: 700, fontSize: 20, marginBottom: 12 }}>Vendor Forms to Fill</h3>
+                  <VendorForms />
+                </div>
+              </>
+            )} */}
+            {view === 'admin' && showTemplateBuilder && (
+              <>
+                <h1 style={{ textAlign: 'center', fontWeight: 800, fontSize: 36, letterSpacing: '-1px', marginBottom: 8, background: 'linear-gradient(90deg, #6366f1 30%, #06b6d4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Templates</h1>
+                <p style={{ textAlign: 'center', color: '#64748b', marginBottom: 32, fontSize: 18 }}>Create and manage templates.</p>
+                <Nav />
+                {error && <div style={{ color: '#ef4444', marginBottom: 16, fontWeight: 600, textAlign: 'center' }}>Error: {error}</div>}
+                <TemplateBuilder templates={templates} onSave={handleSaveTemplate} />
+                {/* Master template listing */}
+                <div style={{ marginTop: 32 }}>
+                  <h3 style={{ fontWeight: 700, fontSize: 22, marginBottom: 12 }}>Templates</h3>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {templates.map((t, idx) => (
+                      <li key={t.templateId} style={{ marginBottom: 12 }}>
+                        <button
+                          style={{ width: '100%', padding: 12, borderRadius: 8, background: '#e0e7ff', color: '#334155', fontWeight: 600, border: 'none', textAlign: 'left' }}
+                          onClick={() => setSelectedInstance({
+                            instanceId: `preview-${t.templateId}`,
+                            sourceTemplateId: t.templateId,
+                            sourceTemplateVersion: t.version,
+                            createdAt: t.createdAt,
+                            updatedAt: t.updatedAt,
+                            locked: true,
+                            sections: t.sections.map(s => ({
+                              ...s,
+                              instanceContent: s.content,
+                            })),
+                          }) || setView('preview')}
+                        >
+                          {t.name} (v{t.version})
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
+            {view === 'user' && (
+              <RfpInstanceEditor templates={templates} onCreate={handleCreateInstance} />
+            )}
+            {view === 'preview' && selectedInstance && (
+              <>
+                <PreviewView instance={selectedInstance} />
+                <div style={{ display: 'flex', gap: 16, marginTop: 32 }}>
+                  <button
+                    style={{ padding: '12px 24px', borderRadius: 8, border: '2px solid #22c55e', background: '#22c55e', color: 'white', fontWeight: 700, fontSize: 17, boxShadow: '0 2px 8px rgba(34,197,94,0.08)', transition: 'background 0.2s', marginRight: 8 }}
+                    onClick={() => {
+                      // Save vendor form instance to localStorage
+                      const vendorForms = JSON.parse(localStorage.getItem('vendor_forms') || '[]');
+                      vendorForms.push(selectedInstance);
+                      localStorage.setItem('vendor_forms', JSON.stringify(vendorForms));
+                      alert('Form saved for vendor!');
+                      setView('dashboard');
+                    }}
+                  >
+                    Save for Vendor
+                  </button>
+                  <button
+                    style={{ padding: '12px 24px', borderRadius: 8, border: '2px solid #6366f1', background: '#f1f5f9', color: '#6366f1', fontWeight: 700, fontSize: 17, boxShadow: '0 2px 8px rgba(99,102,241,0.08)', transition: 'background 0.2s' }}
+                    onClick={() => setView('admin')}
+                  >
+                    Back to Projects
+                  </button>
+                </div>
+              </>
+            )}
+            {view === 'preview' && !selectedInstance && (
+              <div style={{ color: '#64748b', textAlign: 'center', marginTop: 32 }}>No RFP instance selected.</div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
