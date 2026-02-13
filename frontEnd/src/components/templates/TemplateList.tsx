@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import MainLayout from "../../MainLayout";
 import { InputField } from "../shared/ui";
+import { showToast } from "../shared/ui";
 import SearchIcon from "@mui/icons-material/Search";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import AddIcon from "@mui/icons-material/Add";
@@ -21,7 +22,8 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { themeMaterial } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useNavigate } from "react-router";
-import { useGetAllTemplatesQuery } from "../../api/Templates";
+import { useDeleteTemplateMutation, useGetAllTemplatesQuery } from "../../api/Templates";
+import ConfirmDialog from "../shared/ui/confirmDialog";
 
 
 const TemplateList = () => {
@@ -29,8 +31,50 @@ const TemplateList = () => {
 
   const [searchValue, setSearchValue] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [templateIdToDelete, setTemplateIdToDelete] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useGetAllTemplatesQuery();
+  const [deleteTemplate, { isLoading: isDeleting }] = useDeleteTemplateMutation();
+
+  const handleDeleteClick = (templateId: string) => {
+    setTemplateIdToDelete(templateId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    if (isDeleting) return;
+    setDeleteDialogOpen(false);
+    setTemplateIdToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!templateIdToDelete) return;
+
+    try {
+      const response = await deleteTemplate(templateIdToDelete).unwrap();
+
+      if (response?.success === false) {
+        showToast({
+          message: response?.message || "Failed to delete template.",
+          type: "error",
+        });
+        return;
+      }
+
+      showToast({
+        message: response?.message || "Template deleted successfully.",
+        type: "success",
+      });
+      setDeleteDialogOpen(false);
+      setTemplateIdToDelete(null);
+    } catch {
+      showToast({
+        message: "Failed to delete template.",
+        type: "error",
+      });
+    }
+  };
 
   const tableData = useMemo(() => {
     const templates = data?.data ?? [];
@@ -114,7 +158,7 @@ const TemplateList = () => {
               <IconButton
                 size="small"
                 sx={{ color: "#d32f2f" }}
-                onClick={() => params.data && console.log("Delete", params.data.id)}
+                onClick={() => params.data && handleDeleteClick(params.data.id)}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -251,6 +295,18 @@ const TemplateList = () => {
             size="large"
           />
         </Box>
+
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          title="Delete Template"
+          message="Are you sure you want to delete this template?"
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          disableSubmit={isDeleting}
+          isLoading={isDeleting}
+        />
       </Box>
     </MainLayout>
   );
