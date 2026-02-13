@@ -8,9 +8,9 @@ interface BasicStepProps {
   data: {
     name: string;
     description: string;
-    type: string;
+    type: number | "";
   };
-  onChange: (field: string, value: any) => void;
+  onChange: (field: "name" | "description" | "type", value: string | number) => void;
 }
 
 const BasicStep = ({ data, onChange }: BasicStepProps) => {
@@ -21,7 +21,7 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
     () =>
       (templateTypesResponse?.data ?? []).map((type) => ({
         label: type.name,
-        value: type.name,
+        value: type.id,
       })),
     [templateTypesResponse?.data]
   );
@@ -38,7 +38,7 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
           <InputField
             placeholder="Enter Template Name"
             value={data.name}
-            onChange={(e: any) =>
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               onChange("name", e.target.value)
             }
           />
@@ -54,7 +54,7 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
             value={data.description}
             multiline
             minRows={2}
-            onChange={(e: any) =>
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               onChange("description", e.target.value)
             }
           />
@@ -72,7 +72,7 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
             placeholder="Select Template Type"
             loading={isTemplateTypesLoading}
             onChange={(value: string | number | null) =>
-              onChange("type", value || "")
+              onChange("type", value ?? "")
             }
             isClearable
           />
