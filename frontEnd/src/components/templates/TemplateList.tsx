@@ -17,19 +17,12 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import theme from "../theme";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { themeMaterial } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useNavigate } from "react-router";
+import { useGetAllTemplatesQuery } from "../../api/Templates";
 
-interface TemplateRow {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  createdOn: string;
-  updatedOn: string;
-}
 
 const TemplateList = () => {
   const navigate = useNavigate();
@@ -37,25 +30,37 @@ const TemplateList = () => {
   const [searchValue, setSearchValue] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
 
-  // Replace later with API data
-  const rowData: TemplateRow[] = [
-    {
-      id: "1",
-      name: "Vendor Compliance Template",
-      description: "Basic compliance questions for vendors",
-      type: "General",
-      createdOn: "01 Feb 2026",
-      updatedOn: "05 Feb 2026"
-    },
-    {
-      id: "2",
-      name: "Technical Evaluation Template",
-      description: "Used for technical bid evaluation",
-      type: "Technical",
-      createdOn: "02 Feb 2026",
-      updatedOn: "06 Feb 2026"
-    }
-  ];
+  const { data, isLoading, isError, refetch } = useGetAllTemplatesQuery();
+
+  const tableData = useMemo(() => {
+    const templates = data?.data ?? [];
+
+    return templates.map((template) => ({
+      id: template.templateId,
+      name: template.templateName,
+      description: template.description,
+      type: template.typeId,
+      createdOn: template.templateCreatedDateTime
+        ? new Date(template.templateCreatedDateTime).toLocaleDateString()
+        : "-",
+      updatedOn: template.templateModifiedDateTime
+        ? new Date(template.templateModifiedDateTime).toLocaleDateString()
+        : "-",
+    }));
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    if (!searchValue.trim()) return tableData;
+
+    const query = searchValue.toLowerCase();
+    return tableData.filter((template) =>
+      [template.name, template.description, String(template.type)]
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [searchValue, tableData]);
+
 
   const columnDefs = useMemo(() => {
     return [
@@ -94,13 +99,13 @@ const TemplateList = () => {
         headerName: "ACTIONS",
         width: 130,
         headerClass: "uppercase-header",
-        cellRenderer: (params: any) => (
+        cellRenderer: (params: ICellRendererParams<{ id: string }>) => (
           <Stack direction="row" spacing={1}>
             <Tooltip title="Edit">
               <IconButton
                 size="small"
                 sx={{ color: "#0080BC" }}
-                onClick={() => navigate(`/templates/edit/${params.data.id}`)}
+                onClick={() => params.data && navigate(`/templates/edit/${params.data.id}`)}
               >
                 <EditIcon fontSize="small" />
               </IconButton>
@@ -109,7 +114,7 @@ const TemplateList = () => {
               <IconButton
                 size="small"
                 sx={{ color: "#d32f2f" }}
-                onClick={() => console.log("Delete", params.data.id)}
+                onClick={() => params.data && console.log("Delete", params.data.id)}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -118,7 +123,7 @@ const TemplateList = () => {
         )
       }
     ] as ColDef[];
-  }, []);
+  }, [navigate]);
 
   const defaultColDef = useMemo(
     () => ({
@@ -128,6 +133,9 @@ const TemplateList = () => {
     }),
     []
   );
+
+  if (isLoading) return <div>Loading templates...</div>;
+  if (isError) return <div>Failed to load templates</div>;
 
   return (
     <MainLayout>
@@ -199,6 +207,7 @@ const TemplateList = () => {
                     borderColor: "#0080BC"
                   }
                 }}
+                onClick={() => refetch()}
               >
                 <RestartAltIcon fontSize="small" sx={{ color: "#0080BC" }} />
               </IconButton>
@@ -218,7 +227,7 @@ const TemplateList = () => {
             }}
           >
             <AgGridReact
-              rowData={rowData}
+              rowData={filteredData}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
               theme={themeMaterial}

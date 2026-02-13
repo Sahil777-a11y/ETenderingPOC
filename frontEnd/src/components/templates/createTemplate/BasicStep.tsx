@@ -1,6 +1,8 @@
 import { Box, Stack, Typography } from "@mui/material";
+import { useMemo } from "react";
 import { InputField } from "../../shared/ui";
 import ReactSelect from "../../shared/ui/ReactSelect";
+import { useGetAllTemplateTypesQuery } from "../../../api/Templates";
 
 interface BasicStepProps {
   data: {
@@ -11,13 +13,19 @@ interface BasicStepProps {
   onChange: (field: string, value: any) => void;
 }
 
-const templateTypeOptions = [
-  { label: "RFP", value: "RFP" },
-  { label: "RFQ", value: "RFQ" },
-  { label: "RFI", value: "RFI" },
-];
-
 const BasicStep = ({ data, onChange }: BasicStepProps) => {
+  const { data: templateTypesResponse, isLoading: isTemplateTypesLoading } =
+    useGetAllTemplateTypesQuery();
+
+  const templateTypeOptions = useMemo(
+    () =>
+      (templateTypesResponse?.data ?? []).map((type) => ({
+        label: type.name,
+        value: type.name,
+      })),
+    [templateTypesResponse?.data]
+  );
+
   return (
     <Box maxWidth={600}>
       <Stack spacing={4}>
@@ -62,6 +70,7 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
             options={templateTypeOptions}
             value={data.type || null}
             placeholder="Select Template Type"
+            loading={isTemplateTypesLoading}
             onChange={(value: string | number | null) =>
               onChange("type", value || "")
             }
