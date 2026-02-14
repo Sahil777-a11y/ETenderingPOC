@@ -9,15 +9,16 @@ import type { TemplateBuilderSection, TextProperties } from "../../../shared/typ
 const uuid = () => crypto.randomUUID();
 
 interface BuilderStepProps {
+  initialSections?: TemplateBuilderSection[];
   onSectionsChange: (sections: TemplateBuilderSection[]) => void;
 }
 
-export default function BuilderStep({ onSectionsChange }: BuilderStepProps) {
+export default function BuilderStep({ initialSections = [], onSectionsChange }: BuilderStepProps) {
   //editable draft
-  const [sections, setSections] = useState<TemplateBuilderSection[]>([]);
+  const [sections, setSections] = useState<TemplateBuilderSection[]>(initialSections);
 
   //saved version
-  const [previewSections, setPreviewSections] = useState<TemplateBuilderSection[]>([]);
+  const [previewSections, setPreviewSections] = useState<TemplateBuilderSection[]>(initialSections);
 
   const createSection = (
     type: typeof SectionTypeId[keyof typeof SectionTypeId]
@@ -102,6 +103,13 @@ export default function BuilderStep({ onSectionsChange }: BuilderStepProps) {
   useEffect(() => {
     onSectionsChange(sections);
   }, [onSectionsChange, sections]);
+
+  useEffect(() => {
+    if (initialSections.length > 0 && sections.length === 0) {
+      setSections(initialSections);
+      setPreviewSections(initialSections);
+    }
+  }, [initialSections, sections.length]);
 
   return (
     <Box

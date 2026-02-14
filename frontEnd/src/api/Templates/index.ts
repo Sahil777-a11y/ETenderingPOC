@@ -38,10 +38,31 @@ export interface TemplateListItem {
   sections: TemplateSection[];
 }
 
+export interface UpsertTemplateSectionPayload {
+  sectionTypeId: number;
+  sectionOrder: number;
+  title: string;
+  content: string;
+  responseType: number;
+  properties: string;
+  acknowledgementStatement: boolean;
+  signature: string;
+}
+
+export interface UpsertTemplatePayload {
+  templateId?: string;
+  name: string;
+  description: string;
+  typeId: number;
+  sections: UpsertTemplateSectionPayload[];
+}
+
 
 
 export type GetAllTemplatesResponse = ApiResponse<TemplateListItem[]>;
 export type GetAllTemplateTypesResponse = ApiResponse<TemplateType[]>;
+export type GetTemplateByIdResponse = ApiResponse<TemplateListItem>;
+export type UpsertTemplateResponse = ApiResponse<unknown>;
 
 const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
   endpoints: (build) => ({
@@ -61,7 +82,16 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
       providesTags: ["ETendering_TAG"],
     }),
 
-    createTemplate: build.mutation<any, any>({
+    getTemplateByTemplateId: build.query<GetTemplateByIdResponse, string>({
+      query: (templateId) => ({
+        url: `/Template/GetTemplateByTemplateId`,
+        method: "GET",
+        params: { templateId },
+      }),
+      providesTags: ["ETendering_TAG"],
+    }),
+
+    createTemplate: build.mutation<UpsertTemplateResponse, UpsertTemplatePayload>({
       query: (body) => ({
         url: "Template/UpsertTemplate",
         method: "POST",
@@ -70,16 +100,16 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
       invalidatesTags: ["ETendering_TAG"],
     }),
 
-    updateTemplate: build.mutation<any, any>({
+    updateTemplate: build.mutation<UpsertTemplateResponse, UpsertTemplatePayload>({
       query: (body) => ({
         url: "Template/UpsertTemplate",
-        method: "PUT",
+        method: "POST",
         body,
       }),
       invalidatesTags: ["ETendering_TAG"],
     }),
 
-    deleteTemplate: build.mutation<any, string>({
+    deleteTemplate: build.mutation<ApiResponse<unknown>, string>({
       query: (templateId) => ({
         url: "Template/DeleteTemplateByTemplateId",
         method: "DELETE",
@@ -97,6 +127,7 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
 export const {
   useGetAllTemplatesQuery,
   useGetAllTemplateTypesQuery,
+  useGetTemplateByTemplateIdQuery,
   useCreateTemplateMutation,
   useUpdateTemplateMutation,
   useDeleteTemplateMutation,

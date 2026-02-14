@@ -40,6 +40,11 @@ export const Routes = [
     component: CreateTemplate
   },
   {
+    name: 'Edit Template',
+    path: '/edit-template/:id',
+    component: CreateTemplate
+  },
+  {
     name: 'Not Found',
     path: '/*',
     component: () => <NotFoundPage />

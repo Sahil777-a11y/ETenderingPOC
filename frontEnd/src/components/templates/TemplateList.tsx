@@ -149,7 +149,7 @@ const TemplateList = () => {
               <IconButton
                 size="small"
                 sx={{ color: "#0080BC" }}
-                onClick={() => params.data && navigate(`/templates/edit/${params.data.id}`)}
+                onClick={() => params.data && navigate(`/edit-template/${params.data.id}`)}
               >
                 <EditIcon fontSize="small" />
               </IconButton>
