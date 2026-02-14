@@ -51,6 +51,11 @@ function RichTextEditor({
     };
   }, [quill, onChange]);
 
+  useEffect(() => {
+    if (!quill) return;
+    quill.enable(!readOnly);
+  }, [quill, readOnly]);
+
   console.log("render RTE");
 
   return (

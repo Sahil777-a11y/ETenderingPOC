@@ -112,7 +112,7 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
     deleteTemplate: build.mutation<ApiResponse<unknown>, string>({
       query: (templateId) => ({
         url: "Template/DeleteTemplateByTemplateId",
-        method: "DELETE",
+        method: "POST",
         params: { templateId },
       }),
       invalidatesTags: ["ETendering_TAG"],

@@ -72,6 +72,7 @@ function SectionEditor({
             label="Response Content"
             value={section.content}
             onChange={(val) => updateField("content", val)}
+            disabled={disabled}
           />
 
           <ReactSelect
@@ -259,6 +260,7 @@ function SectionEditor({
               onChange={(val) =>
                 updateField("content", val)
               }
+              disabled={disabled}
             />
 
             <InputField
@@ -284,6 +286,7 @@ function SectionEditor({
             onChange={(val) =>
               updateField("content", val)
             }
+            disabled={disabled}
           />
         )}
     </Stack>

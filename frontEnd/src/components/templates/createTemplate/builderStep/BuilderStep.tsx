@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Grid, Stack, Button } from "@mui/material";
 
 import SectionCard from "./SectionCard";
@@ -19,6 +19,7 @@ export default function BuilderStep({ initialSections = [], onSectionsChange }: 
 
   //saved version
   const [previewSections, setPreviewSections] = useState<TemplateBuilderSection[]>(initialSections);
+  const hydratedFromInitialRef = useRef(false);
 
   const createSection = (
     type: typeof SectionTypeId[keyof typeof SectionTypeId]
@@ -105,11 +106,12 @@ export default function BuilderStep({ initialSections = [], onSectionsChange }: 
   }, [onSectionsChange, sections]);
 
   useEffect(() => {
-    if (initialSections.length > 0 && sections.length === 0) {
+    if (!hydratedFromInitialRef.current && initialSections.length > 0) {
       setSections(initialSections);
       setPreviewSections(initialSections);
+      hydratedFromInitialRef.current = true;
     }
-  }, [initialSections, sections.length]);
+  }, [initialSections]);
 
   return (
     <Box
