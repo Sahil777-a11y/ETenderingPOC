@@ -32,6 +32,7 @@ export interface TemplateListItem {
   templateName: string;
   description: string;
   typeId: number;
+  typeName: string;
   isDeleted: boolean;
   templateCreatedDateTime: string;
   templateModifiedDateTime: string | null;

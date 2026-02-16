@@ -83,7 +83,7 @@ const TemplateList = () => {
       id: template.templateId,
       name: template.templateName,
       description: template.description,
-      type: template.typeId,
+      type: template.typeName || "-",
       createdOn: template.templateCreatedDateTime
         ? new Date(template.templateCreatedDateTime).toLocaleDateString()
         : "-",
