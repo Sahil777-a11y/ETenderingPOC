@@ -20,10 +20,23 @@ export interface TenderListItem {
   modifiedDateTime: string | null;
 }
 
+export interface CreateTenderPayload {
+  name: string;
+  startDate: string;
+  endDate: string;
+  typeId: number;
+}
+
+export interface TenderMappedTemplate {
+  id: string;
+  name: string;
+}
+
 
 
 
 export type GetAllTendersResponse = ApiResponse<TenderListItem[]>;
+export type CreateTenderResponse = ApiResponse<TenderMappedTemplate[]>;
 
 const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
   endpoints: (build) => ({
@@ -35,7 +48,16 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
       providesTags: ["ETendering_TAG"],
     }),
 
-    
+    createTender: build.mutation<CreateTenderResponse, CreateTenderPayload>({
+      query: (body) => ({
+        url: `Tender/CreateTender`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ETendering_TAG"],
+    }),
+
+
 
   }),
   overrideExisting: false,
@@ -44,6 +66,7 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
 
 export const {
   useGetAllTendersQuery,
+  useCreateTenderMutation,
 } = extendedDataAPI;
 
 
