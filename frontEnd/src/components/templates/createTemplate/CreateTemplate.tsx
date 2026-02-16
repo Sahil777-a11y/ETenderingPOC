@@ -38,7 +38,6 @@ const CreateTemplate = () => {
   const [updateTemplate, { isLoading: isUpdatingTemplate }] = useUpdateTemplateMutation();
   const {
     data: templateByIdResponse,
-    isLoading: isTemplateLoading,
     isError: isTemplateError,
   } = useGetTemplateByTemplateIdQuery(id || "", {
     skip: !id,
@@ -111,6 +110,7 @@ const CreateTemplate = () => {
 
       return {
         id: section.sectionUniqueId || crypto.randomUUID(),
+        sectionUniqueId: section.sectionUniqueId || undefined,
         sectionTypeId: mappedSectionType,
         order: section.sectionOrder || index + 1,
         title: section.title || "",
@@ -163,6 +163,9 @@ const CreateTemplate = () => {
         sections: sections
           .sort((a, b) => a.order - b.order)
           .map((section, index) => ({
+            ...(section.sectionUniqueId
+              ? { sectionUniqueId: section.sectionUniqueId }
+              : {}),
             sectionTypeId: section.sectionTypeId,
             sectionOrder: section.order || index + 1,
             title: section.title || "",

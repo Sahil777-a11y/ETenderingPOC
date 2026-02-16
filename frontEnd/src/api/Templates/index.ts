@@ -39,6 +39,7 @@ export interface TemplateListItem {
 }
 
 export interface UpsertTemplateSectionPayload {
+  sectionUniqueId?: string;
   sectionTypeId: number;
   sectionOrder: number;
   title: string;
