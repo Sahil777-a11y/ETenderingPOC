@@ -11,7 +11,7 @@ import MainLayout from "../../../MainLayout";
 import { showToast } from "../../shared/ui";
 import { useGetAllTemplateTypesQuery } from "../../../api/Templates";
 import { useCreateTenderMutation } from "../../../api/Tenders";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import TenderDetailsStep from "./TenderDetailsStep";
 import TenderTemplatesStep from "./TenderTemplatesStep";
 
@@ -27,16 +27,26 @@ interface TemplateRow {
   name: string;
 }
 
+interface CreateTenderRouteState {
+  activeStep?: number;
+  templates?: TemplateRow[];
+}
+
 const CreateTender = () => {
   const navigate = useNavigate();
-  const [activeStep, setActiveStep] = useState(0);
+  const location = useLocation();
+  const routeState = (location.state as CreateTenderRouteState | null) ?? null;
+
+  const [activeStep, setActiveStep] = useState(
+    routeState?.activeStep === 1 ? 1 : 0
+  );
   const [formData, setFormData] = useState<TenderBasicForm>({
     name: "",
     typeId: "",
     startDate: "",
     endDate: "",
   });
-  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [templates, setTemplates] = useState<TemplateRow[]>(routeState?.templates ?? []);
   const steps = ["Tender Details", "Templates"];
 
   const { data: templateTypesResponse, isLoading: isTypesLoading } =

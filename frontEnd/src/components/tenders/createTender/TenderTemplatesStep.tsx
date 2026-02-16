@@ -13,7 +13,10 @@ import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { showToast } from "../../shared/ui";
-import { useDeleteTenderTemplateByIdMutation } from "../../../api/Tenders";
+import {
+  useDeleteTenderTemplateByIdMutation,
+} from "../../../api/Tenders";
+import { useNavigate } from "react-router";
 
 interface TemplateRow {
   id: string;
@@ -26,6 +29,7 @@ interface TenderTemplatesStepProps {
 }
 
 const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesStepProps) => {
+  const navigate = useNavigate();
   const [deleteTenderTemplateById, { isLoading: isDeletingTemplate }] =
     useDeleteTenderTemplateByIdMutation();
 
@@ -53,6 +57,16 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
       });
     }
   }, [deleteTenderTemplateById, onTemplateDeleted]);
+
+  const handleViewTemplate = useCallback((template: TemplateRow) => {
+    navigate(`/preview-template/${template.id}`, {
+      state: {
+        fromCreateTender: true,
+        activeStep: 1,
+        templates,
+      },
+    });
+  }, [navigate, templates]);
 
   const columnDefs = useMemo(
     () =>
@@ -88,12 +102,7 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
                 <IconButton
                   size="small"
                   sx={{ color: "#0080BC" }}
-                  onClick={() =>
-                    showToast({
-                      message: `View template ${params.data.name}`,
-                      type: "success",
-                    })
-                  }
+                  onClick={() => handleViewTemplate(params.data)}
                 >
                   <VisibilityIcon fontSize="small" />
                 </IconButton>
@@ -113,7 +122,7 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
           ),
         },
       ] as ColDef[],
-    [handleDeleteTemplate, isDeletingTemplate]
+    [handleDeleteTemplate, handleViewTemplate, isDeletingTemplate]
   );
 
   const defaultColDef = useMemo(
