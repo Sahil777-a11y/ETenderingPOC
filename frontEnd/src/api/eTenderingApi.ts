@@ -7,8 +7,9 @@ import type {
 import { getTokenForApi } from "../auth/tokenService";
 import { apiScopes } from "../auth/msalConfig";
 
-const BASE_URL = `${import.meta.env.VITE_BACKEND_APPROVAL_ENDPOINT}${import.meta.env.VITE_BACKEND_PREFIX
-  }`;
+// const BASE_URL = `${import.meta.env.VITE_BACKEND_APPROVAL_ENDPOINT}${import.meta.env.VITE_BACKEND_PREFIX
+//   }`;
+const BASE_URL = 'http://192.168.10.93:8090/api/'
 
 const baseQuery = fetchBaseQuery({
   baseUrl: BASE_URL,

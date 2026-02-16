@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Grid, Stack, Button } from "@mui/material";
 
 import SectionCard from "./SectionCard";
@@ -8,12 +8,18 @@ import type { TemplateBuilderSection, TextProperties } from "../../../shared/typ
 
 const uuid = () => crypto.randomUUID();
 
-export default function BuilderStep() {
+interface BuilderStepProps {
+  initialSections?: TemplateBuilderSection[];
+  onSectionsChange: (sections: TemplateBuilderSection[]) => void;
+}
+
+export default function BuilderStep({ initialSections = [], onSectionsChange }: BuilderStepProps) {
   //editable draft
-  const [sections, setSections] = useState<TemplateBuilderSection[]>([]);
+  const [sections, setSections] = useState<TemplateBuilderSection[]>(initialSections);
 
   //saved version
-  const [previewSections, setPreviewSections] = useState<TemplateBuilderSection[]>([]);
+  const [previewSections, setPreviewSections] = useState<TemplateBuilderSection[]>(initialSections);
+  const hydratedFromInitialRef = useRef(false);
 
   const createSection = (
     type: typeof SectionTypeId[keyof typeof SectionTypeId]
@@ -94,6 +100,18 @@ export default function BuilderStep() {
     setSections(reordered);
     setPreviewSections(reordered);
   };
+
+  useEffect(() => {
+    onSectionsChange(sections);
+  }, [onSectionsChange, sections]);
+
+  useEffect(() => {
+    if (!hydratedFromInitialRef.current && initialSections.length > 0) {
+      setSections(initialSections);
+      setPreviewSections(initialSections);
+      hydratedFromInitialRef.current = true;
+    }
+  }, [initialSections]);
 
   return (
     <Box

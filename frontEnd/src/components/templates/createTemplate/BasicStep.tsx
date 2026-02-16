@@ -1,23 +1,31 @@
 import { Box, Stack, Typography } from "@mui/material";
+import { useMemo } from "react";
 import { InputField } from "../../shared/ui";
 import ReactSelect from "../../shared/ui/ReactSelect";
+import { useGetAllTemplateTypesQuery } from "../../../api/Templates";
 
 interface BasicStepProps {
   data: {
     name: string;
     description: string;
-    type: string;
+    type: number | "";
   };
-  onChange: (field: string, value: any) => void;
+  onChange: (field: "name" | "description" | "type", value: string | number) => void;
 }
 
-const templateTypeOptions = [
-  { label: "RFP", value: "RFP" },
-  { label: "RFQ", value: "RFQ" },
-  { label: "RFI", value: "RFI" },
-];
-
 const BasicStep = ({ data, onChange }: BasicStepProps) => {
+  const { data: templateTypesResponse, isLoading: isTemplateTypesLoading } =
+    useGetAllTemplateTypesQuery();
+
+  const templateTypeOptions = useMemo(
+    () =>
+      (templateTypesResponse?.data ?? []).map((type) => ({
+        label: type.name,
+        value: type.id,
+      })),
+    [templateTypesResponse?.data]
+  );
+
   return (
     <Box maxWidth={600}>
       <Stack spacing={4}>
@@ -30,7 +38,7 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
           <InputField
             placeholder="Enter Template Name"
             value={data.name}
-            onChange={(e: any) =>
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               onChange("name", e.target.value)
             }
           />
@@ -46,7 +54,7 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
             value={data.description}
             multiline
             minRows={2}
-            onChange={(e: any) =>
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               onChange("description", e.target.value)
             }
           />
@@ -62,8 +70,9 @@ const BasicStep = ({ data, onChange }: BasicStepProps) => {
             options={templateTypeOptions}
             value={data.type || null}
             placeholder="Select Template Type"
+            loading={isTemplateTypesLoading}
             onChange={(value: string | number | null) =>
-              onChange("type", value || "")
+              onChange("type", value ?? "")
             }
             isClearable
           />

@@ -125,7 +125,10 @@ function SectionCard({
       <CardContent>
         <SectionEditor
           section={localSection}
-          onChange={setLocalSection}
+          onChange={(updatedSection) => {
+            setLocalSection(updatedSection);
+            onChange(updatedSection);
+          }}
           disabled={!isEditing}
         />
       </CardContent>
