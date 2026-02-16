@@ -34,7 +34,7 @@ const TemplateList = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateIdToDelete, setTemplateIdToDelete] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch } = useGetAllTemplatesQuery();
+  const { data, isError, refetch } = useGetAllTemplatesQuery();
   const [deleteTemplate, { isLoading: isDeleting }] = useDeleteTemplateMutation();
 
   const handleDeleteClick = (templateId: string) => {
