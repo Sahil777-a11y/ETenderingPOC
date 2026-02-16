@@ -178,7 +178,7 @@ const TemplateList = () => {
     []
   );
 
-  if (isLoading) return <div>Loading templates...</div>;
+  // if (isLoading) return <div>Loading templates...</div>;
   if (isError) return <div>Failed to load templates</div>;
 
   return (

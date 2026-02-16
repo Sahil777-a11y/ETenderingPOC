@@ -66,6 +66,13 @@ const CreateTemplate = () => {
     });
 
     const mappedSections: TemplateBuilderSection[] = (templateToEdit.sections ?? []).map((section, index) => {
+      const sectionTypeFromApi = Number(section.sectionId) as
+        | typeof SectionTypeId[keyof typeof SectionTypeId]
+        | 0;
+      const isValidSectionType = Object.values(SectionTypeId).includes(
+        sectionTypeFromApi as typeof SectionTypeId[keyof typeof SectionTypeId]
+      );
+
       const sectionResponseType = Number(section.responseType) as
         | typeof ResponseTypeId[keyof typeof ResponseTypeId]
         | 0;
@@ -84,21 +91,27 @@ const CreateTemplate = () => {
         return section.properties;
       })();
 
-      const isResponseSection = [
+      const isResponseTypeValue = [
         ResponseTypeId.Text,
         ResponseTypeId.Numeric,
         ResponseTypeId.List,
       ].includes(sectionResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId]);
 
-      const mappedResponseType = isResponseSection
-        ? (sectionResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId])
-        : undefined;
+      const inferredSectionType = isResponseTypeValue
+        ? SectionTypeId.Response
+        : SectionTypeId.Statement;
+      const mappedSectionType = isValidSectionType
+        ? (sectionTypeFromApi as typeof SectionTypeId[keyof typeof SectionTypeId])
+        : inferredSectionType;
+
+      const mappedResponseType =
+        mappedSectionType === SectionTypeId.Response && isResponseTypeValue
+          ? (sectionResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId])
+          : undefined;
 
       return {
         id: section.sectionUniqueId || crypto.randomUUID(),
-        sectionTypeId: isResponseSection
-          ? SectionTypeId.Response
-          : SectionTypeId.Statement,
+        sectionTypeId: mappedSectionType,
         order: section.sectionOrder || index + 1,
         title: section.title || "",
         content: section.content || "",
@@ -207,7 +220,7 @@ const CreateTemplate = () => {
     }
   };
 
-  if (isEditMode && isTemplateLoading) return <div>Loading template...</div>;
+  // if (isEditMode && isTemplateLoading) return <div>Loading template...</div>;
   if (isEditMode && isTemplateError) return <div>Failed to load template</div>;
 
   return (
