@@ -6,6 +6,7 @@ import Dashboard from "./components/Dashboard"
 import TemplateList from "./components/templates/TemplateList";
 import CreateTemplate from "./components/templates/createTemplate/CreateTemplate";
 import TenderList from "./components/tenders/TenderList";
+import CreateTender from "./components/tenders/createTender/createTender";
 
 type Route = {
   name: string
@@ -49,6 +50,11 @@ export const Routes = [
     path: '/*',
     component: () => <NotFoundPage />
 
+  },
+  {
+    name: 'Create Tender',
+    path: '/tenders/create-tender',
+    component: CreateTender
   },
   {
     name: "UnAuthorized",
