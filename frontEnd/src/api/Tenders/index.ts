@@ -32,9 +32,7 @@ export interface TenderMappedTemplate {
   name: string;
 }
 
-
-
-
+export type DeleteTenderTemplateResponse = ApiResponse<unknown>;
 export type GetAllTendersResponse = ApiResponse<TenderListItem[]>;
 export type CreateTenderResponse = ApiResponse<TenderMappedTemplate[]>;
 
@@ -57,6 +55,15 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
       invalidatesTags: ["ETendering_TAG"],
     }),
 
+    deleteTenderTemplateById: build.mutation<DeleteTenderTemplateResponse, string>({
+      query: (tenderTempId) => ({
+        url: `Tender/DeleteTenderTemplateById`,
+        method: "POST",
+        params: { tenderTempId },
+      }),
+      invalidatesTags: ["ETendering_TAG"],
+    }),
+
 
 
   }),
@@ -67,6 +74,7 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
 export const {
   useGetAllTendersQuery,
   useCreateTenderMutation,
+  useDeleteTenderTemplateByIdMutation,
 } = extendedDataAPI;
 
 

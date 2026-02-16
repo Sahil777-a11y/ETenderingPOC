@@ -158,7 +158,12 @@ const CreateTender = () => {
           )}
 
           {activeStep === 1 && (
-            <TenderTemplatesStep templates={templates} />
+            <TenderTemplatesStep
+              templates={templates}
+              onTemplateDeleted={(templateId) =>
+                setTemplates((prev) => prev.filter((item) => item.id !== templateId))
+              }
+            />
           )}
         </Box>
 

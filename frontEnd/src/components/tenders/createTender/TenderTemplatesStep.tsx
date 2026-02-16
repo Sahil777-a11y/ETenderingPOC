@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   Box,
   IconButton,
@@ -13,6 +13,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { showToast } from "../../shared/ui";
+import { useDeleteTenderTemplateByIdMutation } from "../../../api/Tenders";
 
 interface TemplateRow {
   id: string;
@@ -21,9 +22,38 @@ interface TemplateRow {
 
 interface TenderTemplatesStepProps {
   templates: TemplateRow[];
+  onTemplateDeleted: (templateId: string) => void;
 }
 
-const TenderTemplatesStep = ({ templates }: TenderTemplatesStepProps) => {
+const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesStepProps) => {
+  const [deleteTenderTemplateById, { isLoading: isDeletingTemplate }] =
+    useDeleteTenderTemplateByIdMutation();
+
+  const handleDeleteTemplate = useCallback(async (template: TemplateRow) => {
+    try {
+      const response = await deleteTenderTemplateById(template.id).unwrap();
+
+      if (response?.success === false) {
+        showToast({
+          message: response?.message || "Failed to delete template.",
+          type: "error",
+        });
+        return;
+      }
+
+      onTemplateDeleted(template.id);
+      showToast({
+        message: response?.message || "Template deleted successfully.",
+        type: "success",
+      });
+    } catch {
+      showToast({
+        message: "Failed to delete template.",
+        type: "error",
+      });
+    }
+  }, [deleteTenderTemplateById, onTemplateDeleted]);
+
   const columnDefs = useMemo(
     () =>
       [
@@ -72,13 +102,9 @@ const TenderTemplatesStep = ({ templates }: TenderTemplatesStepProps) => {
               <Tooltip title="Delete">
                 <IconButton
                   size="small"
+                  disabled={isDeletingTemplate}
                   sx={{ color: "#d32f2f" }}
-                  onClick={() =>
-                    showToast({
-                      message: `Delete template ${params.data.name}`,
-                      type: "success",
-                    })
-                  }
+                  onClick={() => handleDeleteTemplate(params.data)}
                 >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
@@ -87,7 +113,7 @@ const TenderTemplatesStep = ({ templates }: TenderTemplatesStepProps) => {
           ),
         },
       ] as ColDef[],
-    []
+    [handleDeleteTemplate, isDeletingTemplate]
   );
 
   const defaultColDef = useMemo(
