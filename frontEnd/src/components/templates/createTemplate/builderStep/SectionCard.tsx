@@ -25,6 +25,8 @@ interface Props {
   onMoveDown: () => void;
   onDelete: () => void;
   onSave: (section: TemplateBuilderSection) => void;
+  defaultEditing?: boolean;
+  onEditingChange?: (isEditing: boolean) => void;
   isFirst: boolean;
   isLast: boolean;
 }
@@ -36,15 +38,18 @@ function SectionCard({
   onMoveDown,
   onSave,
   onDelete,
+  defaultEditing = true,
+  onEditingChange,
   isFirst,
   isLast,
 }: Props) {
-  const [isEditing, setIsEditing] = useState(true);
+  const [isEditing, setIsEditing] = useState(defaultEditing);
   const [localSection, setLocalSection] = useState(section);
 
   useEffect(() => {
     setLocalSection(section);
-  }, [section.id]);
+    setIsEditing(defaultEditing);
+  }, [defaultEditing, section.id]);
 
   const getSectionName = () => {
     switch (section.sectionTypeId) {
@@ -92,6 +97,7 @@ function SectionCard({
                     setIsEditing(false);
                     onChange(localSection);
                     onSave(localSection);
+                    onEditingChange?.(false);
                   }}
                 >
                   <CheckIcon fontSize="small" />
@@ -101,7 +107,10 @@ function SectionCard({
               <Tooltip title="Edit">
                 <IconButton
                   size="small"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    setIsEditing(true);
+                    onEditingChange?.(true);
+                  }}
                 >
                   <EditIcon fontSize="small" />
                 </IconButton>

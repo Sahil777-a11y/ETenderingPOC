@@ -38,7 +38,6 @@ const CreateTemplate = () => {
   const [updateTemplate, { isLoading: isUpdatingTemplate }] = useUpdateTemplateMutation();
   const {
     data: templateByIdResponse,
-    isLoading: isTemplateLoading,
     isError: isTemplateError,
   } = useGetTemplateByTemplateIdQuery(id || "", {
     skip: !id,
@@ -50,6 +49,7 @@ const CreateTemplate = () => {
     type: "",
   });
   const [sections, setSections] = useState<TemplateBuilderSection[]>([]);
+  const [hasEditingSections, setHasEditingSections] = useState(false);
 
   const templateToEdit = useMemo(
     () => templateByIdResponse?.data,
@@ -109,15 +109,25 @@ const CreateTemplate = () => {
           ? (sectionResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId])
           : undefined;
 
+      const mappedAcknowledgementStatement =
+        mappedSectionType === SectionTypeId.Acknowledgement
+          ? typeof section.acknowledgementStatement === "string"
+            ? section.acknowledgementStatement
+            : section.acknowledgementStatement
+              ? "I acknowledge"
+              : ""
+          : "";
+
       return {
         id: section.sectionUniqueId || crypto.randomUUID(),
+        sectionUniqueId: section.sectionUniqueId || undefined,
         sectionTypeId: mappedSectionType,
         order: section.sectionOrder || index + 1,
         title: section.title || "",
         content: section.content || "",
         responseTypeId: mappedResponseType,
         properties: parsedProperties,
-        acknowledgementStatement: "",
+        acknowledgementStatement: mappedAcknowledgementStatement,
         signature: "",
       };
     });
@@ -155,6 +165,14 @@ const CreateTemplate = () => {
         return;
       }
 
+      if (hasEditingSections) {
+        showToast({
+          message: "Save all sections before saving template.",
+          type: "error",
+        });
+        return;
+      }
+
       const payload = {
         ...(isEditMode && id ? { templateId: id } : {}),
         name: basicData.name.trim(),
@@ -163,6 +181,9 @@ const CreateTemplate = () => {
         sections: sections
           .sort((a, b) => a.order - b.order)
           .map((section, index) => ({
+            ...(section.sectionUniqueId
+              ? { id: section.sectionUniqueId }
+              : {}),
             sectionTypeId: section.sectionTypeId,
             sectionOrder: section.order || index + 1,
             title: section.title || "",
@@ -172,7 +193,9 @@ const CreateTemplate = () => {
               ? JSON.stringify(section.properties)
               : "",
             acknowledgementStatement:
-              section.sectionTypeId === SectionTypeId.Acknowledgement,
+              section.sectionTypeId === SectionTypeId.Acknowledgement
+                ? section.acknowledgementStatement || ""
+                : "",
             signature: section.signature || "",
           })),
       };
@@ -269,6 +292,7 @@ const CreateTemplate = () => {
             <BuilderStep
               initialSections={sections}
               onSectionsChange={setSections}
+              onEditingStateChange={setHasEditingSections}
             />
           )}
         </Box>
@@ -294,7 +318,8 @@ const CreateTemplate = () => {
             disabled={
               isCreatingTemplate ||
               isUpdatingTemplate ||
-              (activeStep === "basic" && !isBasicValid)
+              (activeStep === "basic" && !isBasicValid) ||
+              (activeStep === "builder" && hasEditingSections)
             }
           >
             {activeStep === "builder"

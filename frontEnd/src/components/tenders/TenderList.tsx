@@ -3,10 +3,9 @@ import {
   Box,
   Grid,
   Typography,
+  Button,
   IconButton,
   Tooltip,
-  Button,
-  Stack,
   Pagination
 } from "@mui/material";
 import MainLayout from "../../MainLayout";
@@ -14,21 +13,20 @@ import { InputField } from "../shared/ui";
 import SearchIcon from "@mui/icons-material/Search";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import theme from "../theme";
 import type { ColDef } from "ag-grid-community";
 import { themeMaterial } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useNavigate } from "react-router";
+import { useGetAllTendersQuery } from "../../api/Tenders";
+import { formatDate } from "../../helpers";
 
 interface TenderRow {
   id: string;
   name: string;
-  description: string;
   type: string;
-  createdOn: string;
-  updatedOn: string;
+  startDate: string;
+  endDate: string;
 }
 
 const TenderList = () => {
@@ -37,86 +35,90 @@ const TenderList = () => {
   const [searchValue, setSearchValue] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
 
-  // 🔥 Replace later with API data
-  const rowData: TenderRow[] = [
-    {
-      id: "1",
-      name: "Vendor Compliance Template",
-      description: "Basic compliance questions for vendors",
-      type: "General",
-      createdOn: "01 Feb 2026",
-      updatedOn: "05 Feb 2026"
-    },
-    {
-      id: "2",
-      name: "Technical Evaluation Template",
-      description: "Used for technical bid evaluation",
-      type: "Technical",
-      createdOn: "02 Feb 2026",
-      updatedOn: "06 Feb 2026"
-    }
-  ];
+  const {
+    data: tendersResponse,
+    isError,
+    refetch,
+  } = useGetAllTendersQuery();
+
+  const rowData: TenderRow[] = useMemo(() => {
+    const list = tendersResponse?.data ?? [];
+
+    return list.map((item) => ({
+      id: item.tenderHeaderId,
+      name: item.name || "-",
+      type: item.typeName || "-",
+      startDate: item.startDate ? formatDate(item.startDate) : "-",
+      endDate: item.endDate ? formatDate(item.endDate) : "-",
+    }));
+  }, [tendersResponse?.data]);
+
+  const filteredRows = useMemo(() => {
+    const search = searchValue.trim().toLowerCase();
+    if (!search) return rowData;
+
+    return rowData.filter((row) =>
+      [row.name, row.type, row.startDate, row.endDate]
+        .join(" ")
+        .toLowerCase()
+        .includes(search)
+    );
+  }, [rowData, searchValue]);
 
   const columnDefs = useMemo(() => {
     return [
       {
-        headerName: "TEMPLATE NAME",
+        headerName: "TENDER NAME",
         field: "name",
         headerClass: "uppercase-header",
         minWidth: 250,
 
       },
       {
-        headerName: "DESCRIPTION",
-        field: "description",
-        headerClass: "uppercase-header",
-        minWidth: 250,
-      },
-      {
-        headerName: "TYPE",
+        headerName: "TENDER TYPE",
         field: "type",
         width: 150,
         headerClass: "uppercase-header",
       },
       {
-        headerName: "CREATED ON",
-        field: "createdOn",
+        headerName: "START DATE",
+        field: "startDate",
         width: 150,
         headerClass: "uppercase-header",
       },
       {
-        headerName: "UPDATED ON",
-        field: "updatedOn",
+        headerName: "END DATE",
+        field: "endDate",
         width: 150,
         headerClass: "uppercase-header",
       },
-      {
-        headerName: "ACTIONS",
-        width: 130,
-        headerClass: "uppercase-header",
-        cellRenderer: (params: any) => (
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="Edit">
-              <IconButton
-                size="small"
-                sx={{ color: "#0080BC" }}
-                onClick={() => navigate(`/templates/edit/${params.data.id}`)}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton
-                size="small"
-                sx={{ color: "#d32f2f" }}
-                onClick={() => console.log("Delete", params.data.id)}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        )
-      }
+      // {
+      //   headerName: "ACTIONS",
+      //   width: 130,
+      //   headerClass: "uppercase-header",
+      //   cellRenderer: (params: any) => (
+      //     <Stack direction="row" spacing={1}>
+      //       <Tooltip title="Edit">
+      //         <IconButton
+      //           size="small"
+      //           sx={{ color: "#0080BC" }}
+      //           onClick={() => navigate(`/tenders/edit/${params.data.id}`)}
+      //         >
+      //           <EditIcon fontSize="small" />
+      //         </IconButton>
+      //       </Tooltip>
+      //       <Tooltip title="Delete">
+      //         <IconButton
+      //           size="small"
+      //           sx={{ color: "#d32f2f" }}
+      //           onClick={() => console.log("Delete", params.data.id)}
+      //         >
+      //           <DeleteIcon fontSize="small" />
+      //         </IconButton>
+      //       </Tooltip>
+      //     </Stack>
+      //   ),
+      // },
     ] as ColDef[];
   }, []);
 
@@ -156,7 +158,7 @@ const TenderList = () => {
         >
           <Box sx={{ width: "300px" }}>
             <InputField
-              placeholder="Search Templates..."
+              placeholder="Search Tenders..."
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               endIcon={<SearchIcon sx={{ color: theme.palette.primary.main }} />}
@@ -167,7 +169,7 @@ const TenderList = () => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => navigate("/templates/create-template")}
+              onClick={() => navigate("/tenders/create-tender")}
               sx={{
                 fontWeight: "bold",
                 textTransform: "uppercase",
@@ -186,6 +188,7 @@ const TenderList = () => {
 
             <Tooltip title="Reload">
               <IconButton
+                onClick={() => refetch()}
                 size="small"
                 sx={{
                   border: "1px solid #E0E0E0",
@@ -209,6 +212,7 @@ const TenderList = () => {
 
         {/* Table */}
         <Box sx={{ mt: 2 }}>
+          {isError && <Typography color="error">Failed to load tenders.</Typography>}
           <Box
             sx={{
               "& .ag-header-cell-text": {
@@ -218,7 +222,7 @@ const TenderList = () => {
             }}
           >
             <AgGridReact
-              rowData={rowData}
+              rowData={filteredRows}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
               theme={themeMaterial}

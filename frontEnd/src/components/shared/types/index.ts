@@ -3,6 +3,7 @@ import type { ResponseTypeId, SectionTypeId } from "../../../constants";
 
 export interface TemplateBuilderSection {
   id: string;
+  sectionUniqueId?: string;
   sectionTypeId: typeof SectionTypeId[keyof typeof SectionTypeId];
   order: number;
 

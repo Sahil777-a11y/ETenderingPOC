@@ -6,6 +6,9 @@ import Dashboard from "./components/Dashboard"
 import TemplateList from "./components/templates/TemplateList";
 import CreateTemplate from "./components/templates/createTemplate/CreateTemplate";
 import TenderList from "./components/tenders/TenderList";
+import CreateTender from "./components/tenders/createTender/createTender";
+import PreviewTenderTemplate from "./components/tenders/PreviewTenderTemplate";
+import EditTenderTemplate from "./components/tenders/EditTenderTemplate";
 
 type Route = {
   name: string
@@ -45,15 +48,30 @@ export const Routes = [
     component: CreateTemplate
   },
   {
-    name: 'Not Found',
-    path: '/*',
-    component: () => <NotFoundPage />
-
+    name: 'Create Tender',
+    path: '/tenders/create-tender',
+    component: CreateTender
+  },
+  {
+    name: "Preview Tender Template",
+    path: '/preview-template/:tempId',
+    component: PreviewTenderTemplate
+  },
+  {
+    name: "Edit Tender Template",
+    path: '/edit-tender-template/:tempId',
+    component: EditTenderTemplate
   },
   {
     name: "UnAuthorized",
     path: "/unauthorized",
     component: () => <UnauthorizedPage />
+  },
+  {
+    name: 'Not Found',
+    path: '/*',
+    component: () => <NotFoundPage />
+
   },
 ]
 
