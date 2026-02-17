@@ -58,10 +58,31 @@ export interface TenderTemplatePreviewData {
   sections: TenderTemplatePreviewSection[];
 }
 
+export interface UpdateTenderTemplateSectionPayload {
+  id?: string;
+  sectionTypeId: number;
+  sectionOrder: number;
+  title: string;
+  content: string;
+  responseType: number;
+  properties: string;
+  acknowledgementStatement: boolean;
+  signature: string;
+}
+
+export interface UpdateTenderTemplatePayload {
+  templateId: string;
+  name: string;
+  description: string;
+  typeId: number;
+  sections: UpdateTenderTemplateSectionPayload[];
+}
+
 export type DeleteTenderTemplateResponse = ApiResponse<unknown>;
 export type GetAllTendersResponse = ApiResponse<TenderListItem[]>;
 export type CreateTenderResponse = ApiResponse<TenderMappedTemplate[]>;
 export type GetTenderTemplateForPreviewResponse = ApiResponse<TenderTemplatePreviewData>;
+export type UpdateTenderTemplateResponse = ApiResponse<unknown>;
 
 const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
   endpoints: (build) => ({
@@ -97,6 +118,16 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
         method: "GET",
         params: { tenderTempId },
       }),
+      providesTags: ["ETendering_TAG"],
+    }),
+
+    updateTenderTemplate: build.mutation<UpdateTenderTemplateResponse, UpdateTenderTemplatePayload>({
+      query: (body) => ({
+        url: `/tender/updateTenderTemplate`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ETendering_TAG"],
     }),
 
 
@@ -112,6 +143,7 @@ export const {
   useDeleteTenderTemplateByIdMutation,
   useGetTenderTemplateForPreviewQuery,
   useLazyGetTenderTemplateForPreviewQuery,
+  useUpdateTenderTemplateMutation,
 } = extendedDataAPI;
 
 

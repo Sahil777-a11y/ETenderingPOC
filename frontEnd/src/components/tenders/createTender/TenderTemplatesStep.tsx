@@ -68,6 +68,16 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
     });
   }, [navigate, templates]);
 
+  const handleEditTemplate = useCallback((template: TemplateRow) => {
+    navigate(`/edit-tender-template/${template.id}`, {
+      state: {
+        fromCreateTender: true,
+        activeStep: 1,
+        templates,
+      },
+    });
+  }, [navigate, templates]);
+
   const columnDefs = useMemo(
     () =>
       [
@@ -87,12 +97,7 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
                 <IconButton
                   size="small"
                   sx={{ color: "#0080BC" }}
-                  onClick={() =>
-                    showToast({
-                      message: `Edit template ${params.data.name}`,
-                      type: "success",
-                    })
-                  }
+                  onClick={() => handleEditTemplate(params.data)}
                 >
                   <EditIcon fontSize="small" />
                 </IconButton>
@@ -122,7 +127,7 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
           ),
         },
       ] as ColDef[],
-    [handleDeleteTemplate, handleViewTemplate, isDeletingTemplate]
+    [handleDeleteTemplate, handleEditTemplate, handleViewTemplate, isDeletingTemplate]
   );
 
   const defaultColDef = useMemo(
