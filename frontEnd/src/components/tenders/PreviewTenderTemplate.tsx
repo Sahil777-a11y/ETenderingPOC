@@ -80,15 +80,21 @@ const PreviewTenderTemplate = () => {
   });
 
   const previewSections: TemplateBuilderSection[] = useMemo(() => {
-    const sections = previewResponse?.data?.sections ?? [];
+    const sections = [...(previewResponse?.data?.sections ?? [])].sort(
+      (a, b) => (a.sectionOrder ?? Number.MAX_SAFE_INTEGER) - (b.sectionOrder ?? Number.MAX_SAFE_INTEGER)
+    );
 
     return sections.map((section: TenderTemplatePreviewSection, index: number) => {
       const sectionTypeId = mapSectionType(section.sectionId);
+      const mappedOrder =
+        typeof section.sectionOrder === "number" && section.sectionOrder > 0
+          ? section.sectionOrder
+          : index + 1;
 
       return {
         id: section.tenderTempSectionId || crypto.randomUUID(),
         sectionTypeId,
-        order: index + 1,
+        order: mappedOrder,
         title: section.title || "",
         content: section.content || "",
         responseTypeId:

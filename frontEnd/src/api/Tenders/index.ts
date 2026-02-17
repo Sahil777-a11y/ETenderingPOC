@@ -36,6 +36,7 @@ export interface TenderTemplatePreviewSection {
   tenderTempSectionId: string;
   tenderTemplateHeader: string;
   sectionId: number;
+  sectionOrder?: number;
   title: string;
   content: string;
   responseType: number;

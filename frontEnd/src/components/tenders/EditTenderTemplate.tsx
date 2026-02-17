@@ -128,15 +128,21 @@ const EditTenderTemplate = () => {
   );
 
   const initialSections = useMemo(() => {
-    const templateSections = previewResponse?.data?.sections ?? [];
+    const templateSections = [...(previewResponse?.data?.sections ?? [])].sort(
+      (a, b) => (a.sectionOrder ?? Number.MAX_SAFE_INTEGER) - (b.sectionOrder ?? Number.MAX_SAFE_INTEGER)
+    );
 
     return templateSections.map((section: TenderTemplatePreviewSection, index: number) => {
       const sectionTypeId = mapSectionType(section);
+      const mappedOrder =
+        typeof section.sectionOrder === "number" && section.sectionOrder > 0
+          ? section.sectionOrder
+          : index + 1;
 
       return {
         id: section.tenderTempSectionId || crypto.randomUUID(),
         sectionTypeId,
-        order: index + 1,
+        order: mappedOrder,
         title: section.title || "",
         content: section.content || "",
         responseTypeId:
