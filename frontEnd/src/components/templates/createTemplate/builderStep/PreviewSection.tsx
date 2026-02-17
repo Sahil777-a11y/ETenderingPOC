@@ -17,12 +17,17 @@ import type {
   TextProperties,
 } from "../../../shared/types";
 import { SectionTypeId, ResponseTypeId } from "../../../../constants";
+import {
+  resolveTemplateTokens,
+  type TemplateTokenContext,
+} from "../../../../utils/templateTokens";
 
 interface Props {
   section: TemplateBuilderSection;
+  tokenContext?: TemplateTokenContext;
 }
 
-export default function PreviewSection({ section }: Props) {
+export default function PreviewSection({ section, tokenContext }: Props) {
   const signaturePadRef = useRef<SignatureCanvas | null>(null);
   const [isSigned, setIsSigned] = useState(false);
 
@@ -43,7 +48,7 @@ export default function PreviewSection({ section }: Props) {
   const renderContent = (html?: string) => (
     <Box
       sx={{ mb: 2 }}
-      dangerouslySetInnerHTML={{ __html: html || "" }}
+      dangerouslySetInnerHTML={{ __html: resolveTemplateTokens(html || "", tokenContext) }}
     />
   );
 

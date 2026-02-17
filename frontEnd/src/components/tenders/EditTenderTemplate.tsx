@@ -11,6 +11,17 @@ import { ResponseTypeId, SectionTypeId } from "../../constants";
 import type { TemplateBuilderSection } from "../shared/types";
 import BuilderStep from "../templates/createTemplate/builderStep/BuilderStep";
 import { showToast } from "../shared/ui";
+import {
+  mapApiTokensToContext,
+  mapApiTokensToOptions,
+  type ApiPlaceholderToken,
+  type TemplateTokenContext,
+} from "../../utils/templateTokens";
+
+const mockApiTokens: ApiPlaceholderToken[] = [
+  { key: "ORG_NAME", label: "ORG_NAME", value: "Mohawk" },
+  { key: "PROJECT_NAME", label: "PROJECT_NAME", value: "E-Tendering" },
+];
 
 const parseSectionProperties = (properties: unknown) => {
   if (!properties) return undefined;
@@ -90,6 +101,7 @@ const EditTenderTemplate = () => {
     fromCreateTender?: boolean;
     activeStep?: number;
     templates?: { id: string; name: string }[];
+    tokenContext?: TemplateTokenContext;
   } | null) ?? null;
 
   const [sections, setSections] = useState<TemplateBuilderSection[]>([]);
@@ -158,6 +170,31 @@ const EditTenderTemplate = () => {
     ].join("__");
   }, [previewResponse?.data, tempId]);
 
+  const previewTokenContext = useMemo<TemplateTokenContext>(
+    () => ({
+      ...mapApiTokensToContext(mockApiTokens),
+      ...(routeState?.tokenContext ?? {}),
+      TEMPLATE_NAME:
+        previewResponse?.data?.name || routeState?.tokenContext?.TEMPLATE_NAME,
+      TEMPLATE_ID:
+        previewResponse?.data?.tenderTempHeaderId ||
+        routeState?.tokenContext?.TEMPLATE_ID,
+      TENDER_ID:
+        previewResponse?.data?.tenderHeaderId || routeState?.tokenContext?.TENDER_ID,
+    }),
+    [
+      previewResponse?.data?.name,
+      previewResponse?.data?.tenderHeaderId,
+      previewResponse?.data?.tenderTempHeaderId,
+      routeState?.tokenContext,
+    ]
+  );
+
+  const tokenOptions = useMemo(
+    () => mapApiTokensToOptions(mockApiTokens),
+    []
+  );
+
   useEffect(() => {
     setSections(initialSections);
   }, [initialSections]);
@@ -219,6 +256,7 @@ const EditTenderTemplate = () => {
           state: {
             activeStep: routeState.activeStep ?? 1,
             templates: routeState.templates ?? [],
+            tokenContext: routeState.tokenContext,
           },
         });
         return;
@@ -248,6 +286,8 @@ const EditTenderTemplate = () => {
               key={builderKey}
               initialSections={initialSections}
               onSectionsChange={setSections}
+              tokenContext={previewTokenContext}
+              tokenOptions={tokenOptions}
             />
           )}
         </Box>
@@ -262,6 +302,7 @@ const EditTenderTemplate = () => {
                   state: {
                     activeStep: routeState.activeStep ?? 1,
                     templates: routeState.templates ?? [],
+                    tokenContext: routeState.tokenContext,
                   },
                 });
                 return;

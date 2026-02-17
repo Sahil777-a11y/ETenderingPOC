@@ -20,6 +20,7 @@ import {
   ResponseTypeId,
   SectionTypeId,
 } from "../../../constants";
+import type { TemplateTokenContext } from "../../../utils/templateTokens";
 
 interface TemplateBasic {
   name: string;
@@ -148,6 +149,14 @@ const CreateTemplate = () => {
   const isBasicValid =
     basicData.name.trim() !== "" &&
     basicData?.type?.toString().trim() !== "";
+
+  const tokenContext: TemplateTokenContext = useMemo(
+    () => ({
+      TEMPLATE_NAME: basicData.name.trim(),
+      TEMPLATE_ID: id || undefined,
+    }),
+    [basicData.name, id]
+  );
 
   const handleNext = async () => {
     if (activeStep === "basic") {
@@ -293,6 +302,7 @@ const CreateTemplate = () => {
               initialSections={sections}
               onSectionsChange={setSections}
               onEditingStateChange={setHasEditingSections}
+              tokenContext={tokenContext}
             />
           )}
         </Box>

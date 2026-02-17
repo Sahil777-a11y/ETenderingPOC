@@ -5,6 +5,10 @@ import SectionCard from "./SectionCard";
 import PreviewPanel from "./PreviewPanel";
 import { ResponseTypeId, SectionTypeId } from "../../../../constants";
 import type { TemplateBuilderSection, TextProperties } from "../../../shared/types";
+import type {
+  PlaceholderTokenOption,
+  TemplateTokenContext,
+} from "../../../../utils/templateTokens";
 
 const uuid = () => crypto.randomUUID();
 
@@ -12,12 +16,16 @@ interface BuilderStepProps {
   initialSections?: TemplateBuilderSection[];
   onSectionsChange: (sections: TemplateBuilderSection[]) => void;
   onEditingStateChange?: (hasEditingSections: boolean) => void;
+  tokenContext?: TemplateTokenContext;
+  tokenOptions?: PlaceholderTokenOption[];
 }
 
 export default function BuilderStep({
   initialSections = [],
   onSectionsChange,
   onEditingStateChange,
+  tokenContext,
+  tokenOptions,
 }: BuilderStepProps) {
   //editable draft
   const [sections, setSections] = useState<TemplateBuilderSection[]>(initialSections);
@@ -186,6 +194,7 @@ export default function BuilderStep({
                 <SectionCard
                   key={section.id}
                   section={section}
+                  tokenOptions={tokenOptions}
                   defaultEditing={!initialSectionIdsRef.current.has(section.id)}
                   onEditingChange={(isEditing) => {
                     setEditingSectionIds((prev) => {
@@ -248,7 +257,10 @@ export default function BuilderStep({
               border: '1px solid #eee',
             }}
           >
-            <PreviewPanel sections={previewSections} />
+            <PreviewPanel
+              sections={previewSections}
+              tokenContext={tokenContext}
+            />
           </Box>
         </Grid>
       </Grid>

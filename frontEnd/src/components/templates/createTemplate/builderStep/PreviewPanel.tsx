@@ -1,12 +1,14 @@
 import { Box, Typography } from "@mui/material";
 import type { TemplateBuilderSection } from "../../../shared/types";
 import PreviewSection from "./PreviewSection";
+import type { TemplateTokenContext } from "../../../../utils/templateTokens";
 
 interface Props {
   sections: TemplateBuilderSection[];
+  tokenContext?: TemplateTokenContext;
 }
 
-export default function PreviewPanel({ sections }: Props) {
+export default function PreviewPanel({ sections, tokenContext }: Props) {
   const sortedSections = [...sections].sort(
     (a, b) => a.order - b.order
   );
@@ -39,6 +41,7 @@ export default function PreviewPanel({ sections }: Props) {
           <PreviewSection
             key={section.id}
             section={section}
+            tokenContext={tokenContext}
           />
         ))}
       </Box>

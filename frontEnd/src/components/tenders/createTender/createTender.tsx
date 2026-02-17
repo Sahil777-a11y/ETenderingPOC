@@ -14,6 +14,7 @@ import { useCreateTenderMutation } from "../../../api/Tenders";
 import { useLocation, useNavigate } from "react-router";
 import TenderDetailsStep from "./TenderDetailsStep";
 import TenderTemplatesStep from "./TenderTemplatesStep";
+import type { TemplateTokenContext } from "../../../utils/templateTokens";
 
 interface TenderBasicForm {
   name: string;
@@ -30,6 +31,7 @@ interface TemplateRow {
 interface CreateTenderRouteState {
   activeStep?: number;
   templates?: TemplateRow[];
+  tokenContext?: TemplateTokenContext;
 }
 
 const CreateTender = () => {
@@ -47,6 +49,9 @@ const CreateTender = () => {
     endDate: "",
   });
   const [templates, setTemplates] = useState<TemplateRow[]>(routeState?.templates ?? []);
+  const [tokenContext, setTokenContext] = useState<TemplateTokenContext>(
+    routeState?.tokenContext ?? {}
+  );
   const steps = ["Tender Details", "Templates"];
 
   const { data: templateTypesResponse, isLoading: isTypesLoading } =
@@ -123,6 +128,12 @@ const CreateTender = () => {
         name: item.name,
       }));
 
+      setTokenContext({
+        TENDER_NAME: formData.name.trim(),
+        START_DATE: formData.startDate,
+        END_DATE: formData.endDate,
+      });
+
       setTemplates(mappedTemplates);
       setActiveStep(1);
       // showToast({
@@ -170,6 +181,7 @@ const CreateTender = () => {
           {activeStep === 1 && (
             <TenderTemplatesStep
               templates={templates}
+              tokenContext={tokenContext}
               onTemplateDeleted={(templateId) =>
                 setTemplates((prev) => prev.filter((item) => item.id !== templateId))
               }
