@@ -40,7 +40,7 @@ export interface TenderTemplatePreviewSection {
   content: string;
   responseType: number;
   properties: unknown;
-  acknowledgementStatement: boolean;
+  acknowledgementStatement: string | boolean;
   signature: string | null;
   createdDateTime: string;
   modifiedDateTime: string | null;
@@ -66,7 +66,7 @@ export interface UpdateTenderTemplateSectionPayload {
   content: string;
   responseType: number;
   properties: string;
-  acknowledgementStatement: boolean;
+  acknowledgementStatement: string;
   signature: string;
 }
 

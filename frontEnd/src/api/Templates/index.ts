@@ -17,7 +17,7 @@ export interface TemplateSection {
   responseType: number;
   sectionOrder: number;
   properties: unknown;
-  acknowledgementStatement: boolean;
+  acknowledgementStatement: string | boolean;
   sectionCreatedDateTime: string;
   sectionModifiedDateTime: string | null;
 }
@@ -40,14 +40,14 @@ export interface TemplateListItem {
 }
 
 export interface UpsertTemplateSectionPayload {
-  sectionUniqueId?: string;
+  id?: string;
   sectionTypeId: number;
   sectionOrder: number;
   title: string;
   content: string;
   responseType: number;
   properties: string;
-  acknowledgementStatement: boolean;
+  acknowledgementStatement: string;
   signature: string;
 }
 

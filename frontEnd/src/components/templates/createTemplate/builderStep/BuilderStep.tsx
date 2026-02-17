@@ -11,15 +11,24 @@ const uuid = () => crypto.randomUUID();
 interface BuilderStepProps {
   initialSections?: TemplateBuilderSection[];
   onSectionsChange: (sections: TemplateBuilderSection[]) => void;
+  onEditingStateChange?: (hasEditingSections: boolean) => void;
 }
 
-export default function BuilderStep({ initialSections = [], onSectionsChange }: BuilderStepProps) {
+export default function BuilderStep({
+  initialSections = [],
+  onSectionsChange,
+  onEditingStateChange,
+}: BuilderStepProps) {
   //editable draft
   const [sections, setSections] = useState<TemplateBuilderSection[]>(initialSections);
 
   //saved version
   const [previewSections, setPreviewSections] = useState<TemplateBuilderSection[]>(initialSections);
+  const [editingSectionIds, setEditingSectionIds] = useState<Set<string>>(new Set());
   const hydratedFromInitialRef = useRef(false);
+  const initialSectionIdsRef = useRef<Set<string>>(
+    new Set(initialSections.map((section) => section.id))
+  );
 
   const createSection = (
     type: typeof SectionTypeId[keyof typeof SectionTypeId]
@@ -66,6 +75,11 @@ export default function BuilderStep({ initialSections = [], onSectionsChange }: 
   const addSection = (type: typeof SectionTypeId[keyof typeof SectionTypeId]) => {
     const newSection = createSection(type);
     setSections((prev) => [...prev, newSection]);
+    setEditingSectionIds((prev) => {
+      const next = new Set(prev);
+      next.add(newSection.id);
+      return next;
+    });
   };
 
   const handleSectionChange = (updatedSection: TemplateBuilderSection) => {
@@ -106,12 +120,22 @@ export default function BuilderStep({ initialSections = [], onSectionsChange }: 
   }, [onSectionsChange, sections]);
 
   useEffect(() => {
-    if (!hydratedFromInitialRef.current && initialSections.length > 0) {
+    onEditingStateChange?.(editingSectionIds.size > 0);
+  }, [editingSectionIds, onEditingStateChange]);
+
+  useEffect(() => {
+    if (
+      !hydratedFromInitialRef.current &&
+      initialSections.length > 0 &&
+      sections.length === 0
+    ) {
       setSections(initialSections);
       setPreviewSections(initialSections);
+      initialSectionIdsRef.current = new Set(initialSections.map((section) => section.id));
+      setEditingSectionIds(new Set());
       hydratedFromInitialRef.current = true;
     }
-  }, [initialSections]);
+  }, [initialSections, sections.length]);
 
   return (
     <Box
@@ -162,6 +186,18 @@ export default function BuilderStep({ initialSections = [], onSectionsChange }: 
                 <SectionCard
                   key={section.id}
                   section={section}
+                  defaultEditing={!initialSectionIdsRef.current.has(section.id)}
+                  onEditingChange={(isEditing) => {
+                    setEditingSectionIds((prev) => {
+                      const next = new Set(prev);
+                      if (isEditing) {
+                        next.add(section.id);
+                      } else {
+                        next.delete(section.id);
+                      }
+                      return next;
+                    });
+                  }}
                   onChange={handleSectionChange}
                   onMoveUp={() => moveSection(index, 'up')}
                   onMoveDown={() => moveSection(index, 'down')}
@@ -170,6 +206,11 @@ export default function BuilderStep({ initialSections = [], onSectionsChange }: 
                     const updatedPreview = previewSections.filter((s) => s.id !== section.id).map((s, i) => ({ ...s, order: i + 1 }));
                     setSections(updatedDraft);
                     setPreviewSections(updatedPreview);
+                    setEditingSectionIds((prev) => {
+                      const next = new Set(prev);
+                      next.delete(section.id);
+                      return next;
+                    });
                   }}
                   onSave={(savedSection) => {
                     setPreviewSections(prev => {
@@ -178,6 +219,11 @@ export default function BuilderStep({ initialSections = [], onSectionsChange }: 
                         return prev.map(p => p.id === savedSection.id ? savedSection : p);
                       }
                       return [...prev, savedSection];
+                    });
+                    setEditingSectionIds((prev) => {
+                      const next = new Set(prev);
+                      next.delete(savedSection.id);
+                      return next;
                     });
                   }}
                   isFirst={index === 0}

@@ -26,8 +26,8 @@ const parseSectionProperties = (properties: unknown) => {
   return properties as TemplateBuilderSection["properties"];
 };
 
-const mapSectionType = (sectionId: number) => {
-  const normalizedSectionId = Number(sectionId);
+const mapSectionType = (section: TenderTemplatePreviewSection) => {
+  const normalizedSectionId = Number(section.sectionId);
 
   if (normalizedSectionId === 1 || normalizedSectionId === SectionTypeId.Statement) {
     return SectionTypeId.Statement;
@@ -43,6 +43,27 @@ const mapSectionType = (sectionId: number) => {
 
   if (normalizedSectionId === 4 || normalizedSectionId === SectionTypeId.ESignature) {
     return SectionTypeId.ESignature;
+  }
+
+  if (typeof section.signature === "string" && section.signature.trim() !== "") {
+    return SectionTypeId.ESignature;
+  }
+
+  if (
+    typeof section.acknowledgementStatement === "string" &&
+    section.acknowledgementStatement.trim() !== ""
+  ) {
+    return SectionTypeId.Acknowledgement;
+  }
+
+  const validResponseTypes = [
+    ResponseTypeId.Text,
+    ResponseTypeId.Numeric,
+    ResponseTypeId.List,
+  ];
+
+  if (validResponseTypes.includes(Number(section.responseType) as typeof ResponseTypeId[keyof typeof ResponseTypeId])) {
+    return SectionTypeId.Response;
   }
 
   return SectionTypeId.Statement;
@@ -98,7 +119,7 @@ const EditTenderTemplate = () => {
     const templateSections = previewResponse?.data?.sections ?? [];
 
     return templateSections.map((section: TenderTemplatePreviewSection, index: number) => {
-      const sectionTypeId = mapSectionType(section.sectionId);
+      const sectionTypeId = mapSectionType(section);
 
       return {
         id: section.tenderTempSectionId || crypto.randomUUID(),
@@ -112,8 +133,12 @@ const EditTenderTemplate = () => {
             : undefined,
         properties: parseSectionProperties(section.properties),
         acknowledgementStatement:
-          sectionTypeId === SectionTypeId.Acknowledgement && section.acknowledgementStatement
-            ? "I acknowledge"
+          sectionTypeId === SectionTypeId.Acknowledgement
+            ? typeof section.acknowledgementStatement === "string"
+              ? section.acknowledgementStatement
+              : section.acknowledgementStatement
+                ? "I acknowledge"
+                : ""
             : "",
         signature: section.signature || "",
       } as TemplateBuilderSection;
@@ -166,7 +191,9 @@ const EditTenderTemplate = () => {
             ? JSON.stringify(section.properties)
             : "",
           acknowledgementStatement:
-            section.sectionTypeId === SectionTypeId.Acknowledgement,
+            section.sectionTypeId === SectionTypeId.Acknowledgement
+              ? section.acknowledgementStatement || ""
+              : "",
           signature: section.signature || "",
         })),
     };
