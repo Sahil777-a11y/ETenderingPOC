@@ -10,6 +10,7 @@ import {
   styled,
   Typography
 } from '@mui/material';
+import { useEffect, useMemo } from 'react';
 
 import {
   Home as DashboardIcon,
@@ -17,7 +18,8 @@ import {
 import type { Theme, CSSObject } from '@mui/material/styles';
 import Mohawk from '../assets/Mohawk.png';
 import MohawkLogo from "../assets/Mohawk logo.png";
-import { NavLink } from 'react-router';
+import { NavLink, useLocation, useNavigate } from 'react-router';
+import { useAuth } from '../auth/useAuth';
 
 
 const drawerWidth = 240;
@@ -84,9 +86,9 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
 );
 
 const menuItems = [
-  { text: 'Home', icon: <DashboardIcon />, path: '/' },
-  { text: 'Templates', icon: <DashboardIcon />, path: '/templates' },
-  { text: 'Tenders', icon: <DashboardIcon />, path: '/tenders' },
+  { text: 'Home', icon: <DashboardIcon />, path: '/', roles: ['eTendering.Vendor'] },
+  { text: 'Templates', icon: <DashboardIcon />, path: '/templates', roles: ['eTendering.Admin'] },
+  { text: 'Tenders', icon: <DashboardIcon />, path: '/tenders', roles: ['eTendering.Admin'] },
 
 ];
 
@@ -97,9 +99,26 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ open }: SidebarProps) => {
+  const { roles } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  const menuToShow = useMemo(() => {
+    const filtered = menuItems.filter((item) =>
+      item.roles?.some((role) => roles.includes(role))
+    );
 
-  const menuToShow = menuItems;
+    return filtered.length > 0 ? filtered : menuItems;
+  }, [roles]);
+
+  useEffect(() => {
+    const firstPath = menuToShow[0]?.path;
+    const isCurrentPathVisible = menuToShow.some((item) => item.path === location.pathname);
+
+    if (firstPath && !isCurrentPathVisible) {
+      navigate(firstPath, { replace: true });
+    }
+  }, [location.pathname, menuToShow, navigate]);
 
   return (
     <Box sx={{ display: 'flex' }}>
