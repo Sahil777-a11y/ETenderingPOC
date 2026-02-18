@@ -31,3 +31,9 @@ export const ResponseTypeOptions = [
   { label: "Numeric", value: ResponseTypeId.Numeric },
   { label: "List", value: ResponseTypeId.List },
 ];
+
+export const STATUS_MAP: Record<string, { color: string; bgcolor: string }> = {
+  "Not Submitted": { color: "#FFFFFF", bgcolor: "#FBC02D" },
+  "In Progress": { color: "#FFFFFF", bgcolor: "#00ACC1" },
+  Submitted: { color: "#FFFFFF", bgcolor: "#43A047" },
+};

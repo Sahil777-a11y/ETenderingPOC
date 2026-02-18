@@ -11,6 +11,17 @@ import { ResponseTypeId, SectionTypeId } from "../../constants";
 import type { TemplateBuilderSection } from "../shared/types";
 import BuilderStep from "../templates/createTemplate/builderStep/BuilderStep";
 import { showToast } from "../shared/ui";
+import {
+  mapApiTokensToContext,
+  mapApiTokensToOptions,
+  type ApiPlaceholderToken,
+  type TemplateTokenContext,
+} from "../../utils/templateTokens";
+
+const mockApiTokens: ApiPlaceholderToken[] = [
+  { key: "ORG_NAME", label: "ORG_NAME", value: "Mohawk" },
+  { key: "PROJECT_NAME", label: "PROJECT_NAME", value: "E-Tendering" },
+];
 
 const parseSectionProperties = (properties: unknown) => {
   if (!properties) return undefined;
@@ -90,6 +101,7 @@ const EditTenderTemplate = () => {
     fromCreateTender?: boolean;
     activeStep?: number;
     templates?: { id: string; name: string }[];
+    tokenContext?: TemplateTokenContext;
   } | null) ?? null;
 
   const [sections, setSections] = useState<TemplateBuilderSection[]>([]);
@@ -116,15 +128,21 @@ const EditTenderTemplate = () => {
   );
 
   const initialSections = useMemo(() => {
-    const templateSections = previewResponse?.data?.sections ?? [];
+    const templateSections = [...(previewResponse?.data?.sections ?? [])].sort(
+      (a, b) => (a.sectionOrder ?? Number.MAX_SAFE_INTEGER) - (b.sectionOrder ?? Number.MAX_SAFE_INTEGER)
+    );
 
     return templateSections.map((section: TenderTemplatePreviewSection, index: number) => {
       const sectionTypeId = mapSectionType(section);
+      const mappedOrder =
+        typeof section.sectionOrder === "number" && section.sectionOrder > 0
+          ? section.sectionOrder
+          : index + 1;
 
       return {
         id: section.tenderTempSectionId || crypto.randomUUID(),
         sectionTypeId,
-        order: index + 1,
+        order: mappedOrder,
         title: section.title || "",
         content: section.content || "",
         responseTypeId:
@@ -157,6 +175,31 @@ const EditTenderTemplate = () => {
         .join("|"),
     ].join("__");
   }, [previewResponse?.data, tempId]);
+
+  const previewTokenContext = useMemo<TemplateTokenContext>(
+    () => ({
+      ...mapApiTokensToContext(mockApiTokens),
+      ...(routeState?.tokenContext ?? {}),
+      TEMPLATE_NAME:
+        previewResponse?.data?.name || routeState?.tokenContext?.TEMPLATE_NAME,
+      TEMPLATE_ID:
+        previewResponse?.data?.tenderTempHeaderId ||
+        routeState?.tokenContext?.TEMPLATE_ID,
+      TENDER_ID:
+        previewResponse?.data?.tenderHeaderId || routeState?.tokenContext?.TENDER_ID,
+    }),
+    [
+      previewResponse?.data?.name,
+      previewResponse?.data?.tenderHeaderId,
+      previewResponse?.data?.tenderTempHeaderId,
+      routeState?.tokenContext,
+    ]
+  );
+
+  const tokenOptions = useMemo(
+    () => mapApiTokensToOptions(mockApiTokens),
+    []
+  );
 
   useEffect(() => {
     setSections(initialSections);
@@ -219,6 +262,7 @@ const EditTenderTemplate = () => {
           state: {
             activeStep: routeState.activeStep ?? 1,
             templates: routeState.templates ?? [],
+            tokenContext: routeState.tokenContext,
           },
         });
         return;
@@ -248,6 +292,8 @@ const EditTenderTemplate = () => {
               key={builderKey}
               initialSections={initialSections}
               onSectionsChange={setSections}
+              tokenContext={previewTokenContext}
+              tokenOptions={tokenOptions}
             />
           )}
         </Box>
@@ -262,6 +308,7 @@ const EditTenderTemplate = () => {
                   state: {
                     activeStep: routeState.activeStep ?? 1,
                     templates: routeState.templates ?? [],
+                    tokenContext: routeState.tokenContext,
                   },
                 });
                 return;

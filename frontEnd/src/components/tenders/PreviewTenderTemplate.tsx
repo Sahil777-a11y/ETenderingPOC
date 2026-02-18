@@ -9,6 +9,7 @@ import {
 import PreviewPanel from "../templates/createTemplate/builderStep/PreviewPanel";
 import type { TemplateBuilderSection } from "../shared/types";
 import { ResponseTypeId, SectionTypeId } from "../../constants";
+import type { TemplateTokenContext } from "../../utils/templateTokens";
 
 const parseSectionProperties = (properties: unknown) => {
   if (!properties) return undefined;
@@ -67,6 +68,7 @@ const PreviewTenderTemplate = () => {
     fromCreateTender?: boolean;
     activeStep?: number;
     templates?: { id: string; name: string }[];
+    tokenContext?: TemplateTokenContext;
   } | null) ?? null;
 
   const {
@@ -78,15 +80,21 @@ const PreviewTenderTemplate = () => {
   });
 
   const previewSections: TemplateBuilderSection[] = useMemo(() => {
-    const sections = previewResponse?.data?.sections ?? [];
+    const sections = [...(previewResponse?.data?.sections ?? [])].sort(
+      (a, b) => (a.sectionOrder ?? Number.MAX_SAFE_INTEGER) - (b.sectionOrder ?? Number.MAX_SAFE_INTEGER)
+    );
 
     return sections.map((section: TenderTemplatePreviewSection, index: number) => {
       const sectionTypeId = mapSectionType(section.sectionId);
+      const mappedOrder =
+        typeof section.sectionOrder === "number" && section.sectionOrder > 0
+          ? section.sectionOrder
+          : index + 1;
 
       return {
         id: section.tenderTempSectionId || crypto.randomUUID(),
         sectionTypeId,
-        order: index + 1,
+        order: mappedOrder,
         title: section.title || "",
         content: section.content || "",
         responseTypeId:
@@ -103,6 +111,25 @@ const PreviewTenderTemplate = () => {
     });
   }, [previewResponse?.data?.sections]);
 
+  const previewTokenContext = useMemo<TemplateTokenContext>(
+    () => ({
+      ...(routeState?.tokenContext ?? {}),
+      TEMPLATE_NAME:
+        previewResponse?.data?.name || routeState?.tokenContext?.TEMPLATE_NAME,
+      TEMPLATE_ID:
+        previewResponse?.data?.tenderTempHeaderId ||
+        routeState?.tokenContext?.TEMPLATE_ID,
+      TENDER_ID:
+        previewResponse?.data?.tenderHeaderId || routeState?.tokenContext?.TENDER_ID,
+    }),
+    [
+      previewResponse?.data?.name,
+      previewResponse?.data?.tenderHeaderId,
+      previewResponse?.data?.tenderTempHeaderId,
+      routeState?.tokenContext,
+    ]
+  );
+
   return (
     <MainLayout>
       <Box sx={{ p: 4, display: "flex", flexDirection: "column", height: "100%" }}>
@@ -113,7 +140,12 @@ const PreviewTenderTemplate = () => {
         <Box sx={{ mt: 3, flex: 1, minHeight: 0 }}>
           {isLoading && <Typography>Loading template preview...</Typography>}
           {isError && <Typography color="error">Failed to load template preview.</Typography>}
-          {!isLoading && !isError && <PreviewPanel sections={previewSections} />}
+          {!isLoading && !isError && (
+            <PreviewPanel
+              sections={previewSections}
+              tokenContext={previewTokenContext}
+            />
+          )}
         </Box>
 
         <Divider sx={{ my: 4 }} />
@@ -126,6 +158,7 @@ const PreviewTenderTemplate = () => {
                   state: {
                     activeStep: routeState.activeStep ?? 1,
                     templates: routeState.templates ?? [],
+                    tokenContext: routeState.tokenContext,
                   },
                 });
                 return;

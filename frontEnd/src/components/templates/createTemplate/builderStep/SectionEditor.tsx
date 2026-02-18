@@ -15,17 +15,20 @@ import type {
 } from "../../../shared/types";
 import React from "react";
 import { RichTextField } from "../../../shared/ui/RichTextField";
+import type { PlaceholderTokenOption } from "../../../../utils/templateTokens";
 
 interface Props {
   section: TemplateBuilderSection;
   onChange: (section: TemplateBuilderSection) => void;
   disabled?: boolean;
+  tokenOptions?: PlaceholderTokenOption[];
 }
 
 function SectionEditor({
   section,
   onChange,
   disabled,
+  tokenOptions,
 }: Props) {
 
   const updateField = (field: keyof TemplateBuilderSection, value: any) => {
@@ -61,6 +64,7 @@ function SectionEditor({
             value={section.content}
             onChange={(val) => updateField("content", val)}
             disabled={disabled}
+            tokenOptions={tokenOptions}
           />
         </>
       )}
@@ -73,6 +77,7 @@ function SectionEditor({
             value={section.content}
             onChange={(val) => updateField("content", val)}
             disabled={disabled}
+            tokenOptions={tokenOptions}
           />
 
           <ReactSelect
@@ -261,6 +266,7 @@ function SectionEditor({
                 updateField("content", val)
               }
               disabled={disabled}
+              tokenOptions={tokenOptions}
             />
 
             <InputField
@@ -287,6 +293,7 @@ function SectionEditor({
               updateField("content", val)
             }
             disabled={disabled}
+            tokenOptions={tokenOptions}
           />
         )}
     </Stack>

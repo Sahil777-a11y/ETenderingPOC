@@ -17,6 +17,7 @@ import {
   useDeleteTenderTemplateByIdMutation,
 } from "../../../api/Tenders";
 import { useNavigate } from "react-router";
+import type { TemplateTokenContext } from "../../../utils/templateTokens";
 
 interface TemplateRow {
   id: string;
@@ -26,9 +27,14 @@ interface TemplateRow {
 interface TenderTemplatesStepProps {
   templates: TemplateRow[];
   onTemplateDeleted: (templateId: string) => void;
+  tokenContext?: TemplateTokenContext;
 }
 
-const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesStepProps) => {
+const TenderTemplatesStep = ({
+  templates,
+  onTemplateDeleted,
+  tokenContext,
+}: TenderTemplatesStepProps) => {
   const navigate = useNavigate();
   const [deleteTenderTemplateById, { isLoading: isDeletingTemplate }] =
     useDeleteTenderTemplateByIdMutation();
@@ -64,9 +70,10 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
         fromCreateTender: true,
         activeStep: 1,
         templates,
+        tokenContext,
       },
     });
-  }, [navigate, templates]);
+  }, [navigate, templates, tokenContext]);
 
   const handleEditTemplate = useCallback((template: TemplateRow) => {
     navigate(`/edit-tender-template/${template.id}`, {
@@ -74,9 +81,10 @@ const TenderTemplatesStep = ({ templates, onTemplateDeleted }: TenderTemplatesSt
         fromCreateTender: true,
         activeStep: 1,
         templates,
+        tokenContext,
       },
     });
-  }, [navigate, templates]);
+  }, [navigate, templates, tokenContext]);
 
   const columnDefs = useMemo(
     () =>

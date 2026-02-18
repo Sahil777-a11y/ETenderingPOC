@@ -1,16 +1,19 @@
 import { Box, Typography } from "@mui/material";
 import RichTextEditor from "./RichTextEditor";
+import type { PlaceholderTokenOption } from "../../../utils/templateTokens";
 
 export const RichTextField = ({
   label,
   value,
   onChange,
-  disabled
+  disabled,
+  tokenOptions,
 }: {
   label: string;
   value?: string;
   onChange: (val: string) => void;
   disabled?: boolean;
+  tokenOptions?: PlaceholderTokenOption[];
 }) => (
   <Box>
     <Typography
@@ -44,6 +47,7 @@ export const RichTextField = ({
         value={value || ""}
         onChange={onChange}
         readOnly={disabled}
+        tokenOptions={tokenOptions}
       />
     </Box>
   </Box>

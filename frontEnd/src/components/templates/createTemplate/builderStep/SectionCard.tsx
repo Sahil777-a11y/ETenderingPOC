@@ -17,9 +17,11 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SectionEditor from "./SectionEditor";
 import type { TemplateBuilderSection } from "../../../shared/types";
 import { SectionTypeId } from "../../../../constants";
+import type { PlaceholderTokenOption } from "../../../../utils/templateTokens";
 
 interface Props {
   section: TemplateBuilderSection;
+  tokenOptions?: PlaceholderTokenOption[];
   onChange: (section: TemplateBuilderSection) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -33,6 +35,7 @@ interface Props {
 
 function SectionCard({
   section,
+  tokenOptions,
   onChange,
   onMoveUp,
   onMoveDown,
@@ -134,6 +137,7 @@ function SectionCard({
       <CardContent>
         <SectionEditor
           section={localSection}
+          tokenOptions={tokenOptions}
           onChange={(updatedSection) => {
             setLocalSection(updatedSection);
             onChange(updatedSection);

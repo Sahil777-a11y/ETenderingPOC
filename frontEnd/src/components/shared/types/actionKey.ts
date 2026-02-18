@@ -1,1 +1,1 @@
-export type ActionKey = 'view' | 'edit' | 'delete' | 'use';
+export type ActionKey = 'view' | 'edit' | 'delete' | 'use' | 'submit';
