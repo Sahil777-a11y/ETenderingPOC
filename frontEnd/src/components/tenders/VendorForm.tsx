@@ -10,6 +10,7 @@ import {
 } from "../../api/Tenders";
 import VendorFormSection, { type VendorFormSectionModel } from "./vendorForm/VendorFormSection";
 import { showToast } from "../shared/ui";
+import type { TemplateTokenContext } from "../../utils/templateTokens";
 
 const tryParseJson = (value: string) => {
   try {
@@ -175,6 +176,21 @@ const VendorForm = () => {
 
     return parseVendorTemplateResponse(vendorResponse);
   }, [vendorResponse]);
+
+  const tokenContext = useMemo<TemplateTokenContext>(
+    () => ({
+      ORG_NAME: "Mohawk",
+      PROJECT_NAME: "E-Tendering",
+      TEMPLATE_NAME: parsedTemplate?.name,
+      TEMPLATE_ID: parsedTemplate?.tenderTempHeaderId,
+      TENDER_ID: parsedTemplate?.tenderHeaderId,
+    }),
+    [
+      parsedTemplate?.name,
+      parsedTemplate?.tenderHeaderId,
+      parsedTemplate?.tenderTempHeaderId,
+    ]
+  );
 
   useEffect(() => {
     const mappedSections = [...(parsedTemplate?.sections ?? [])]
@@ -415,6 +431,7 @@ const VendorForm = () => {
                   section={section}
                   onResponseChange={handleResponseChange}
                   validationError={sectionValidationErrors[section.tenderTempSectionId]}
+                  tokenContext={tokenContext}
                 />
               ))}
             </Box>

@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import SignatureCanvas from "react-signature-canvas";
 import { ResponseTypeId, SectionTypeId } from "../../../constants";
+import { resolveTemplateTokens, type TemplateTokenContext } from "../../../utils/templateTokens";
 
 export interface VendorFormSectionModel {
   tenderTempSectionId: string;
@@ -29,6 +30,7 @@ interface Props {
   section: VendorFormSectionModel;
   onResponseChange: (sectionId: string, value: string | number | boolean) => void;
   validationError?: string;
+  tokenContext?: TemplateTokenContext;
 }
 
 const parseProperties = (properties?: string) => {
@@ -69,7 +71,7 @@ const normalizeSectionType = (sectionId?: number) => {
   return normalized;
 };
 
-const VendorFormSection = ({ section, onResponseChange, validationError }: Props) => {
+const VendorFormSection = ({ section, onResponseChange, validationError, tokenContext }: Props) => {
   const signaturePadRef = useRef<SignatureCanvas | null>(null);
   const [isSigned, setIsSigned] = useState(false);
   const sectionTypeId = useMemo(
@@ -113,7 +115,12 @@ const VendorFormSection = ({ section, onResponseChange, validationError }: Props
       )}
 
       {!!section.content && (
-        <Box sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: section.content }} />
+        <Box
+          sx={{ mb: 2 }}
+          dangerouslySetInnerHTML={{
+            __html: resolveTemplateTokens(section.content, tokenContext),
+          }}
+        />
       )}
 
       {sectionTypeId === SectionTypeId.Response && section.responseType === ResponseTypeId.Text && (
@@ -175,7 +182,7 @@ const VendorFormSection = ({ section, onResponseChange, validationError }: Props
                 onChange={(event) => onResponseChange(section.tenderTempSectionId, event.target.checked)}
               />
             }
-            label={section.acknowledgementStatement || "I acknowledge"}
+            label={resolveTemplateTokens(section.acknowledgementStatement || "I acknowledge", tokenContext)}
           />
           {validationError && (
             <Typography variant="caption" color="error" sx={{ display: "block", mt: -0.5 }}>
