@@ -165,6 +165,8 @@ export interface UpsertVendorResponseDetailsPayload {
 
 export type UpsertVendorResponseDetailsResponse = ApiResponse<unknown>;
 
+export type UpdateTendorSubmitStatusResponse = ApiResponse<unknown>;
+
 export type DeleteTenderTemplateResponse = ApiResponse<unknown>;
 export type GetAllTendersResponse = ApiResponse<TenderListItem[]>;
 export type TendersForVendorResponse = GetTendersForVendorResponse;
@@ -221,6 +223,15 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
       invalidatesTags: ["ETendering_TAG"],
     }),
 
+    updateTendorSubmitStatus: build.mutation<UpdateTendorSubmitStatusResponse, string>({
+      query: (tenderId) => ({
+        url: `/Tender/UpdateTendorSubmitStatus`,
+        method: "POST",
+        params: { tenderId },
+      }),
+      invalidatesTags: ["ETendering_TAG"],
+    }),
+
     createTender: build.mutation<CreateTenderResponse, CreateTenderPayload>({
       query: (body) => ({
         url: `Tender/CreateTender`,
@@ -270,6 +281,7 @@ export const {
   useGetVendersBidByTenderIdQuery,
   useGetVendorResponseByTenderTemplateHeaderIdQuery,
   useUpsertVendorResponseDetailsMutation,
+  useUpdateTendorSubmitStatusMutation,
   useCreateTenderMutation,
   useDeleteTenderTemplateByIdMutation,
   useGetTenderTemplateForPreviewQuery,

@@ -20,8 +20,12 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import { useLocation, useNavigate } from "react-router";
 import MainLayout from "../../MainLayout";
-import { useGetVendersBidByTenderIdQuery } from "../../api/Tenders";
+import {
+  useGetVendersBidByTenderIdQuery,
+  useUpdateTendorSubmitStatusMutation,
+} from "../../api/Tenders";
 import { formatDate } from "../../helpers";
+import { showToast } from "../shared/ui";
 
 const getRemainingTime = (endDate: string, now: dayjs.Dayjs) => {
   const end = dayjs(endDate);
@@ -45,6 +49,8 @@ const TenderSubmit = () => {
   const [now, setNow] = useState(dayjs());
   const queryParams = new URLSearchParams(location.search);
   const tenderId = queryParams.get("tenderId") || "";
+  const [updateTendorSubmitStatus, { isLoading: isSubmitting }] =
+    useUpdateTendorSubmitStatusMutation();
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -63,6 +69,37 @@ const TenderSubmit = () => {
 
   const allTemplatesCompleted =
     templates.length > 0 && templates.every((template) => Boolean(template.isCompleted));
+
+  const handleFinalSubmit = async () => {
+    if (!tenderId) {
+      showToast({ message: "Tender id is missing.", type: "error" });
+      return;
+    }
+
+    try {
+      const response = await updateTendorSubmitStatus(tenderId).unwrap();
+
+      if (response?.success === false) {
+        showToast({
+          message: response?.message || "Failed to submit tender.",
+          type: "error",
+        });
+        return;
+      }
+
+      showToast({
+        message: response?.message || "Tender submitted successfully.",
+        type: "success",
+      });
+
+      navigate("/");
+    } catch {
+      showToast({
+        message: "Failed to submit tender.",
+        type: "error",
+      });
+    }
+  };
 
   return (
     <MainLayout>
@@ -201,14 +238,22 @@ const TenderSubmit = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            <Box display="flex" justifyContent="flex-end">
+            <Box display="flex" justifyContent="flex-end" gap={1}>
               <Button
-                variant="contained"
-                disabled={!allTemplatesCompleted}
-                onClick={() => console.log("Final tender submit", tender.tenderId)}
+                variant="outlined"
+                onClick={() => navigate("/")}
                 sx={{ textTransform: "uppercase", fontWeight: 700, minWidth: 140 }}
               >
-                Submit
+                Cancel
+              </Button>
+
+              <Button
+                variant="contained"
+                disabled={!allTemplatesCompleted || isSubmitting}
+                onClick={handleFinalSubmit}
+                sx={{ textTransform: "uppercase", fontWeight: 700, minWidth: 140 }}
+              >
+                {isSubmitting ? "Submitting..." : "Submit"}
               </Button>
             </Box>
           </>
