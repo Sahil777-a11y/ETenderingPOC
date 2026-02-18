@@ -6,6 +6,7 @@ import { AgGridReact } from "ag-grid-react";
 import { useNavigate } from "react-router";
 import MainLayout from "../../MainLayout";
 import { useGetTendersForVendorQuery } from "../../api/Tenders";
+import { useAuth } from "../../auth/useAuth";
 import { formatDate } from "../../helpers";
 import { StatusRenderer } from "../../helpers/statusRenderer";
 import { renderActionIcon } from "../../utils/actionUtils";
@@ -39,15 +40,22 @@ const ActionRenderer = (
 };
 
 const Dashboard = () => {
+  const { roles } = useAuth();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
+
+  const hasAllowedRole =
+    roles.includes("eTendering.Vendor");
 
   const {
     data: vendorTendersResponse,
     isLoading,
     isFetching,
     isError,
-  } = useGetTendersForVendorQuery({ pageNumber: currentPage - 1, pageSize: PAGE_SIZE });
+  } = useGetTendersForVendorQuery(
+    { pageNumber: currentPage - 1, pageSize: PAGE_SIZE },
+    { skip: !hasAllowedRole }
+  );
 
   const rowData: VendorTenderRow[] = useMemo(() => {
     const list = vendorTendersResponse?.data ?? [];
@@ -123,44 +131,52 @@ const Dashboard = () => {
   return (
     <MainLayout>
       <Box sx={{ mt: 2.5, mb: 2.5, paddingRight: "15px" }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-          Tenders
-        </Typography>
+        {!hasAllowedRole ? (
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            Home
+          </Typography>
+        ) : (
+          <>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+              Tenders
+            </Typography>
 
-        {isError && <Typography color="error">Failed to load tenders.</Typography>}
+            {isError && <Typography color="error">Failed to load tenders.</Typography>}
 
-        <Box
-          sx={{
-            "& .ag-header-cell-text": {
-              fontWeight: 700,
-              color: "#000000",
-            },
-          }}
-        >
-          <AgGridReact
-            rowData={rowData}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            theme={themeMaterial}
-            rowHeight={55}
-            headerHeight={50}
-            pagination={false}
-            domLayout="autoHeight"
-            suppressCellFocus
-            loading={isLoading || isFetching}
-          />
-        </Box>
+            <Box
+              sx={{
+                "& .ag-header-cell-text": {
+                  fontWeight: 700,
+                  color: "#000000",
+                },
+              }}
+            >
+              <AgGridReact
+                rowData={rowData}
+                columnDefs={columnDefs}
+                defaultColDef={defaultColDef}
+                theme={themeMaterial}
+                rowHeight={55}
+                headerHeight={50}
+                pagination={false}
+                domLayout="autoHeight"
+                suppressCellFocus
+                loading={isLoading || isFetching}
+              />
+            </Box>
 
-        <Box display="flex" justifyContent="flex-end" mt={2}>
-          <Pagination
-            count={totalPages}
-            page={currentPage}
-            onChange={(_, page) => setCurrentPage(page)}
-            shape="rounded"
-            color="primary"
-            size="large"
-          />
-        </Box>
+            <Box display="flex" justifyContent="flex-end" mt={2}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={(_, page) => setCurrentPage(page)}
+                shape="rounded"
+                color="primary"
+                size="large"
+              />
+            </Box>
+          </>
+        )}
       </Box>
     </MainLayout>
   );
