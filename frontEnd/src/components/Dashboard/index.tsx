@@ -3,6 +3,7 @@ import { Box, Pagination, Typography } from "@mui/material";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { themeMaterial } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
+import { useNavigate } from "react-router";
 import MainLayout from "../../MainLayout";
 import { useGetTendersForVendorQuery } from "../../api/Tenders";
 import { formatDate } from "../../helpers";
@@ -20,21 +21,25 @@ type VendorTenderRow = {
   status: string;
 };
 
-const ActionRenderer = (params: ICellRendererParams<VendorTenderRow>) => {
+const ActionRenderer = (
+  params: ICellRendererParams<VendorTenderRow> & { navigate: ReturnType<typeof useNavigate> }
+) => {
   const status = String(params.data?.status || "").toLowerCase();
   const isDisabled = status === "submitted";
+  const tenderId = params.data?.tenderId;
 
   return renderActionIcon("submit", {
-    disabled: isDisabled,
+    disabled: isDisabled || !tenderId,
     onClick: () => {
-      if (!isDisabled) {
-        console.log("Submit tender", params.data?.tenderId);
+      if (!isDisabled && tenderId) {
+        params.navigate(`/tender-submit?tenderId=${tenderId}`);
       }
     },
   });
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
 
   const {
@@ -99,10 +104,11 @@ const Dashboard = () => {
         headerClass: "uppercase-header",
         sortable: false,
         filter: false,
-        cellRenderer: ActionRenderer,
+        cellRenderer: (params: ICellRendererParams<VendorTenderRow>) =>
+          ActionRenderer({ ...params, navigate }),
       },
     ],
-    []
+    [navigate]
   );
 
   const defaultColDef = useMemo<ColDef<VendorTenderRow>>(

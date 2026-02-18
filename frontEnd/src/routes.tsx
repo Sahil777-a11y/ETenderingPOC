@@ -9,6 +9,8 @@ import TenderList from "./components/tenders/TenderList";
 import CreateTender from "./components/tenders/createTender/createTender";
 import PreviewTenderTemplate from "./components/tenders/PreviewTenderTemplate";
 import EditTenderTemplate from "./components/tenders/EditTenderTemplate";
+import TenderSubmit from "./components/tenders/TenderSubmit";
+import VendorForm from "./components/tenders/VendorForm";
 
 type Route = {
   name: string
@@ -61,6 +63,16 @@ export const Routes = [
     name: "Edit Tender Template",
     path: '/edit-tender-template/:tempId',
     component: EditTenderTemplate
+  },
+  {
+    name: "Tender Submit",
+    path: '/tender-submit',
+    component: TenderSubmit
+  },
+  {
+    name: "Vendor Form",
+    path: '/vendor-form/:tempId',
+    component: VendorForm
   },
   {
     name: "UnAuthorized",

@@ -97,6 +97,26 @@ export interface UpdateTenderTemplatePayload {
   sections: UpdateTenderTemplateSectionPayload[];
 }
 
+export interface VendorBidTemplateItem {
+  tenderTemplateHeaderId: string;
+  name: string;
+  description: string;
+  isCompleted: boolean | null;
+  completedDateTime: string | null;
+  response: string | null;
+}
+
+export interface VendorBidTenderDetail {
+  tenderId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  templateType: string;
+  templates: VendorBidTemplateItem[];
+}
+
+export type GetVendersBidByTenderIdResponse = ApiResponse<VendorBidTenderDetail>;
+
 export type DeleteTenderTemplateResponse = ApiResponse<unknown>;
 export type GetAllTendersResponse = ApiResponse<TenderListItem[]>;
 export type TendersForVendorResponse = GetTendersForVendorResponse;
@@ -119,6 +139,15 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
         url: `/Tender/GetTendersForVendor`,
         method: "GET",
         params: { pageNumber, pageSize },
+      }),
+      providesTags: ["ETendering_TAG"],
+    }),
+
+    getVendersBidByTenderId: build.query<GetVendersBidByTenderIdResponse, string>({
+      query: (tenderId) => ({
+        url: `/Tender/GetVendersBidByTenderId`,
+        method: "GET",
+        params: { tenderId },
       }),
       providesTags: ["ETendering_TAG"],
     }),
@@ -169,6 +198,7 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
 export const {
   useGetAllTendersQuery,
   useGetTendersForVendorQuery,
+  useGetVendersBidByTenderIdQuery,
   useCreateTenderMutation,
   useDeleteTenderTemplateByIdMutation,
   useGetTenderTemplateForPreviewQuery,
