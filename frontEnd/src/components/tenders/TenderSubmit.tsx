@@ -214,7 +214,7 @@ const TenderSubmit = () => {
                           <Button
                             variant="contained"
                             size="small"
-                            disabled={isCompleted}
+                            disabled={!template.tenderTemplateHeaderId}
                             onClick={() => navigate(`/vendor-form/${template.tenderTemplateHeaderId}`)}
                             sx={{ textTransform: "uppercase", fontWeight: 700, minWidth: 100 }}
                           >
