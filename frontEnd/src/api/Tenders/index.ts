@@ -117,6 +117,54 @@ export interface VendorBidTenderDetail {
 
 export type GetVendersBidByTenderIdResponse = ApiResponse<VendorBidTenderDetail>;
 
+export interface VendorResponsePayload {
+  tenderTempSectionId: string;
+  tenderTemplateHeader: string;
+  sectionId: number;
+  title: string;
+  content: string;
+  responseType: number;
+  properties: string;
+  acknowledgementStatement: string;
+  signature: string;
+  response?: string | number | boolean | null;
+  sectionOrder?: number;
+  createdDateTime: string;
+  modifiedDateTime: string | null;
+}
+
+export interface VendorResponseTemplatePayload {
+  tenderTempHeaderId: string;
+  tenderHeaderId: string;
+  name: string;
+  description: string;
+  typeId: number;
+  isDeleted: boolean;
+  createdDateTime: string;
+  modifiedDateTime: string | null;
+  sections: VendorResponsePayload[];
+}
+
+export interface VendorResponseData {
+  resposneId?: string;
+  responseId?: string;
+  vendorBidId: string;
+  tenderTemplateHeaderId: string;
+  response: string;
+  isCompleted: boolean;
+  completedDateTime: string | null;
+}
+
+export type GetVendorResponseByTenderTemplateHeaderIdResponse = ApiResponse<VendorResponseData>;
+
+export interface UpsertVendorResponseDetailsPayload {
+  tenderTemplarteHeaderId: string;
+  response: string;
+  isCompleted: boolean;
+}
+
+export type UpsertVendorResponseDetailsResponse = ApiResponse<unknown>;
+
 export type DeleteTenderTemplateResponse = ApiResponse<unknown>;
 export type GetAllTendersResponse = ApiResponse<TenderListItem[]>;
 export type TendersForVendorResponse = GetTendersForVendorResponse;
@@ -150,6 +198,27 @@ const extendedDataAPI = ETenderingDataAPI.injectEndpoints({
         params: { tenderId },
       }),
       providesTags: ["ETendering_TAG"],
+    }),
+
+    getVendorResponseByTenderTemplateHeaderId: build.query<GetVendorResponseByTenderTemplateHeaderIdResponse, string>({
+      query: (tenderTemplateHeaderId) => ({
+        url: `/Tender/GetVendorResponseByTenderTemplateHeaderId`,
+        method: "GET",
+        params: { tenderTemplateHeaderId },
+      }),
+      providesTags: ["ETendering_TAG"],
+    }),
+
+    upsertVendorResponseDetails: build.mutation<
+      UpsertVendorResponseDetailsResponse,
+      UpsertVendorResponseDetailsPayload
+    >({
+      query: (body) => ({
+        url: `/Tender/UpsertVendorResponseDetails`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ETendering_TAG"],
     }),
 
     createTender: build.mutation<CreateTenderResponse, CreateTenderPayload>({
@@ -199,6 +268,8 @@ export const {
   useGetAllTendersQuery,
   useGetTendersForVendorQuery,
   useGetVendersBidByTenderIdQuery,
+  useGetVendorResponseByTenderTemplateHeaderIdQuery,
+  useUpsertVendorResponseDetailsMutation,
   useCreateTenderMutation,
   useDeleteTenderTemplateByIdMutation,
   useGetTenderTemplateForPreviewQuery,
