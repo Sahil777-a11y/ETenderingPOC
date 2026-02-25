@@ -37,3 +37,8 @@ export const STATUS_MAP: Record<string, { color: string; bgcolor: string }> = {
   "In Progress": { color: "#FFFFFF", bgcolor: "#00ACC1" },
   Submitted: { color: "#FFFFFF", bgcolor: "#43A047" },
 };
+
+export const UserRoles = {
+  ADMIN: "eTendering.Admin",
+  VENDOR: "eTendering.Vendor",
+} as const;

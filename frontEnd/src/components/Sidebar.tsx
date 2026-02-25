@@ -18,6 +18,8 @@ import type { Theme, CSSObject } from '@mui/material/styles';
 import Mohawk from '../assets/Mohawk.png';
 import MohawkLogo from "../assets/Mohawk logo.png";
 import { NavLink } from 'react-router';
+import { useAuth } from '../auth/useAuth';
+import { UserRoles } from '../constants';
 
 
 const drawerWidth = 240;
@@ -83,13 +85,14 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
   }),
 );
 
-const menuItems = [
+const vendorMenuItems = [
   { text: 'Home', icon: <DashboardIcon />, path: '/' },
-  { text: 'Templates', icon: <DashboardIcon />, path: '/templates' },
-  { text: 'Tenders', icon: <DashboardIcon />, path: '/tenders' },
-
 ];
 
+const adminMenuItems = [
+  { text: 'Templates', icon: <DashboardIcon />, path: '/templates' },
+  { text: 'Tenders', icon: <DashboardIcon />, path: '/tenders' },
+];
 
 interface SidebarProps {
   open: boolean;
@@ -97,9 +100,10 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ open }: SidebarProps) => {
+  const { hasRole } = useAuth();
 
-
-  const menuToShow = menuItems;
+  const isAdmin = hasRole(UserRoles.ADMIN);
+  const menuToShow = isAdmin ? adminMenuItems : vendorMenuItems;
 
   return (
     <Box sx={{ display: 'flex' }}>
