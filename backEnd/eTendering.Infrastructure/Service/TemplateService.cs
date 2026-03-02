@@ -3,8 +3,8 @@ using eTendering.Core.Helpers;
 using eTendering.Core.Models;
 using eTendering.Infrastructure.Repository.Interface;
 using eTendering.Infrastructure.Service.Interface;
-using Newtonsoft.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace eTendering.Infrastructure.Service
 {
@@ -159,15 +159,30 @@ namespace eTendering.Infrastructure.Service
             {
                 ValidateTemplate(request);
 
-                var jsonSections = JsonConvert.SerializeObject(request.Sections);
+                var fullPayload = new
+                {
+                    customTokens = request.CustomTokens ?? new List<CustomTokenDto>(),
+                    sections = request.Sections
+                };
 
-                var templateId = await _repo.QueryCustomSingleAsync<Guid>("dbo.sp_InsertTemplateWithSections", new
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                // ✅ Serialize the full payload
+                var jsonSections = JsonSerializer.Serialize(fullPayload, jsonOptions);
+
+                var templateId = await _repo.QueryCustomSingleAsync<Guid>(
+                    "dbo.sp_InsertTemplateWithSections", 
+                    new
                     {
                         request.TemplateId,
                         request.Name,
                         request.Description,
                         request.TypeId,
-                        Sections = jsonSections
+                        Sections = jsonSections  
                     });
 
                 return templateId;
