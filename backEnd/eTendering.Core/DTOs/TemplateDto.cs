@@ -11,8 +11,10 @@
         public DateTime TemplateCreatedDateTime { get; set; }
         public DateTime? TemplateModifiedDateTime { get; set; }
 
+        public List<CustomTokenDto> CustomTokens { get; set; } = new();
         public List<TemplateSectionDto> Sections { get; set; } = new();
     }
+
     public class TemplateSectionDto
     {
         public Guid SectionUniqueId { get; set; }
@@ -25,6 +27,9 @@
         public string? AcknowledgementStatement { get; set; }
         public DateTime? SectionCreatedDateTime { get; set; }
         public DateTime? SectionModifiedDateTime { get; set; }
+
+        public Guid? ParentTemplateSectionId { get; set; }
+        public List<TemplateSectionDto> Subsections { get; set; } = new();
     }
 
     public class TemplateFlatDto
@@ -48,7 +53,11 @@
         public string? AcknowledgementStatement { get; set; }
         public DateTime? SectionCreatedDateTime { get; set; }
         public DateTime? SectionModifiedDateTime { get; set; }
+
+        public Guid? ParentTemplateSectionId { get; set; }
+
+        public string? TokenName { get; set; }
+        public string? TokenValue { get; set; }
     }
-
-
+   
 }
