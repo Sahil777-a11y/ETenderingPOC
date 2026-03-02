@@ -21,40 +21,10 @@ namespace eTendering.Infrastructure.Service
 
                 var groupedData = flatData
                     .GroupBy(x => x.TemplateId)
-                    .Select(template => new TemplateDto
-                    {
-                        TemplateId = template.Key,
-                        TemplateName = template.First().TemplateName,
-                        Description = template.First().Description,
-                        TypeId = template.First().TypeId,
-                        TypeName = template.First().TypeName,
-                        IsDeleted = template.First().IsDeleted,
-                        TemplateCreatedDateTime = template.First().TemplateCreatedDateTime,
-                        TemplateModifiedDateTime = template.First().TemplateModifiedDateTime,
+                    .Select(template => BuildTemplateDto(template));
 
-                        Sections = template
-                            .Where(s => s.SectionUniqueId != null)
-                            .Select(s => new TemplateSectionDto
-                            {
-                                SectionUniqueId = s.SectionUniqueId.Value,
-                                SectionId = s.SectionId ?? 0,
-                                Title = s.Title,
-                                Content = s.Content,
-                                ResponseType = s.ResponseType,
-                                SectionOrder = s.SectionOrder,
-                                Properties = s.Properties,
-                                AcknowledgementStatement = s.AcknowledgementStatement,
-                                SectionCreatedDateTime = s.SectionCreatedDateTime,
-                                SectionModifiedDateTime = s.SectionModifiedDateTime
-                            })
-                            .OrderBy(s => s.SectionOrder)
-                            .ToList()
-                    });
-
-
-                return ResponseFactory.Success(groupedData, "Templates fetched successfully");
+                return ResponseFactory.Success<IEnumerable<TemplateDto>>(groupedData, "Templates fetched successfully");
             }
-
             catch (Exception ex)
             {
                 throw;
@@ -72,38 +42,7 @@ namespace eTendering.Infrastructure.Service
                 if (flatData == null || !flatData.Any())
                     return ResponseFactory.Failure<TemplateDto>("Template not found");
 
-                var template = flatData
-                    .GroupBy(x => x.TemplateId)
-                    .Select(template => new TemplateDto
-                    {
-                        TemplateId = template.Key,
-                        TemplateName = template.First().TemplateName,
-                        Description = template.First().Description,
-                        TypeId = template.First().TypeId,
-                        TypeName = template.First().TypeName,
-                        IsDeleted = template.First().IsDeleted,
-                        TemplateCreatedDateTime = template.First().TemplateCreatedDateTime,
-                        TemplateModifiedDateTime = template.First().TemplateModifiedDateTime,
-
-                        Sections = template
-                            .Where(s => s.SectionUniqueId != null)
-                            .Select(s => new TemplateSectionDto
-                            {
-                                SectionUniqueId = s.SectionUniqueId.Value,
-                                SectionId = s.SectionId ?? 0,
-                                Title = s.Title,
-                                Content = s.Content,
-                                ResponseType = s.ResponseType,
-                                SectionOrder = s.SectionOrder,
-                                Properties = s.Properties,
-                                AcknowledgementStatement = s.AcknowledgementStatement,
-                                SectionCreatedDateTime = s.SectionCreatedDateTime,
-                                SectionModifiedDateTime = s.SectionModifiedDateTime
-                            })
-                            .OrderBy(s => s.SectionOrder)
-                            .ToList()
-                    })
-                    .FirstOrDefault();
+                var template = BuildTemplateDto(flatData.GroupBy(x => x.TemplateId).First());
 
                 return ResponseFactory.Success(template, "Template fetched successfully");
             }
@@ -126,7 +65,6 @@ namespace eTendering.Infrastructure.Service
 
                 return ResponseFactory.Success(response, "TemplateTypes fetched successfully");
             }
-
             catch (Exception ex)
             {
                 throw;
@@ -171,7 +109,6 @@ namespace eTendering.Infrastructure.Service
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 };
 
-                // ✅ Serialize the full payload
                 var jsonSections = JsonSerializer.Serialize(fullPayload, jsonOptions);
 
                 var templateId = await _repo.QueryCustomSingleAsync<Guid>(
@@ -193,11 +130,102 @@ namespace eTendering.Infrastructure.Service
             }
         }
 
-
-
-
-
         #region Private Functions
+
+        /// <summary>
+        /// Builds a TemplateDto with custom tokens and nested sections from flat data
+        /// </summary>
+        private TemplateDto BuildTemplateDto(IGrouping<Guid, TemplateFlatDto> templateGroup)
+        {
+            var firstRow = templateGroup.First();
+
+            // ✅ Extract unique custom tokens
+            var customTokens = templateGroup
+                .Where(x => !string.IsNullOrWhiteSpace(x.TokenName))
+                .GroupBy(x => x.TokenName)
+                .Select(g => new CustomTokenDto
+                {
+                    Name = g.Key!,
+                    Value = g.First().TokenValue
+                })
+                .ToList();
+
+            // ✅ Extract all sections (flat)
+            var allSections = templateGroup
+                .Where(s => s.SectionUniqueId != null)
+                .GroupBy(s => s.SectionUniqueId)
+                .Select(s => new TemplateSectionDto
+                {
+                    SectionUniqueId = s.Key!.Value,
+                    SectionId = s.First().SectionId ?? 0,
+                    Title = s.First().Title,
+                    Content = s.First().Content,
+                    ResponseType = s.First().ResponseType,
+                    SectionOrder = s.First().SectionOrder,
+                    Properties = s.First().Properties,
+                    AcknowledgementStatement = s.First().AcknowledgementStatement,
+                    SectionCreatedDateTime = s.First().SectionCreatedDateTime,
+                    SectionModifiedDateTime = s.First().SectionModifiedDateTime,
+                    ParentTemplateSectionId = s.First().ParentTemplateSectionId,
+                    Subsections = new List<TemplateSectionDto>()
+                })
+                .ToList();
+
+            // ✅ Build nested structure
+            var sectionsDictionary = allSections.ToDictionary(s => s.SectionUniqueId);
+            var rootSections = new List<TemplateSectionDto>();
+
+            foreach (var section in allSections)
+            {
+                if (section.ParentTemplateSectionId == null)
+                {
+                    // Root level section
+                    rootSections.Add(section);
+                }
+                else
+                {
+                    // Child section - add to parent's Subsections
+                    if (sectionsDictionary.TryGetValue(section.ParentTemplateSectionId.Value, out var parentSection))
+                    {
+                        parentSection.Subsections.Add(section);
+                    }
+                }
+            }
+
+            // ✅ Sort sections and subsections recursively
+            SortSectionsRecursively(rootSections);
+
+            return new TemplateDto
+            {
+                TemplateId = templateGroup.Key,
+                TemplateName = firstRow.TemplateName,
+                Description = firstRow.Description,
+                TypeId = firstRow.TypeId,
+                TypeName = firstRow.TypeName,
+                IsDeleted = firstRow.IsDeleted,
+                TemplateCreatedDateTime = firstRow.TemplateCreatedDateTime,
+                TemplateModifiedDateTime = firstRow.TemplateModifiedDateTime,
+                CustomTokens = customTokens,
+                Sections = rootSections
+            };
+        }
+
+        /// <summary>
+        /// Recursively sorts sections and their subsections by SectionOrder
+        /// </summary>
+        private void SortSectionsRecursively(List<TemplateSectionDto> sections)
+        {
+            sections.Sort((a, b) => (a.SectionOrder ?? 0).CompareTo(b.SectionOrder ?? 0));
+
+            foreach (var section in sections)
+            {
+                if (section.Subsections.Any())
+                {
+                    SortSectionsRecursively(section.Subsections);
+                }
+            }
+        }
+
         private void ValidateTemplate(InsertTemplateRequestDto request)
         {
             foreach (var section in request.Sections)
@@ -232,10 +260,6 @@ namespace eTendering.Infrastructure.Service
                         break;
 
                     case 40:
-                        //if (string.IsNullOrWhiteSpace(section.Signature))
-                        //{
-                         //   throw new Exception("For SectionType 40, Signature is required.");
-                        //}
                         break;
 
                     default:
@@ -243,6 +267,7 @@ namespace eTendering.Infrastructure.Service
                 }
             }
         }
+
         private void ValidateResponseType(TemplateSectionRequestDto section)
         {
             if (!section.ResponseType.HasValue)
@@ -264,34 +289,19 @@ namespace eTendering.Infrastructure.Service
 
             if (obj == null)
                 throw new Exception("Invalid Properties format.");
+
             switch (section.ResponseType.Value)
             {
                 case 10:
-                   // if (!obj.ContainsKey("isRequired") || !obj.ContainsKey("maxLength"))
-                     //   throw new Exception("ResponseType 10 requires isRequired and maxLength.");
-                    break;
-
                 case 20:
-                    //if (!obj.ContainsKey("isRequired") ||
-                    //    !obj.ContainsKey("min") ||
-                    //    !obj.ContainsKey("max"))
-                    //    throw new Exception("ResponseType 20 requires isRequired, min and max.");
-                    break;
-
                 case 30:
-                   // if (!obj.ContainsKey("isRequired") || !obj.ContainsKey("options"))
-                    //    throw new Exception("ResponseType 30 requires isRequired and options.");
                     break;
-
                 default:
                     throw new Exception("Invalid ResponseType.");
             }
         }
 
-
         #endregion
-
     }
-
 }
 
