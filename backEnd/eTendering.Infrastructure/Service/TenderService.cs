@@ -72,7 +72,7 @@ namespace eTendering.Infrastructure.Service
             }
         }
 
-        public async Task<GenericResponseDto<TenderTemplateResponseDto>>GetTenderTemplateByIdAsync(Guid tenderTempHeaderId)
+        public async Task<GenericResponseDto<TenderTemplateResponseDto>> GetTenderTemplateByIdAsync(Guid tenderTempHeaderId)
         {
             try
             {
@@ -83,39 +83,7 @@ namespace eTendering.Infrastructure.Service
                 if (flatData == null || !flatData.Any())
                     return ResponseFactory.Failure<TenderTemplateResponseDto>("Template not found");
 
-                var template = flatData
-                    .GroupBy(x => x.TenderTempHeaderId)
-                    .Select(group => new TenderTemplateResponseDto
-                    {
-                        TenderTempHeaderId = group.Key,
-                        TenderHeaderId = group.First().TenderHeaderId,
-                        Name = group.First().Name,
-                        Description = group.First().Description,
-                        TypeId = group.First().TypeId,
-                        IsDeleted = group.First().IsDeleted,
-                        CreatedDateTime = group.First().TemplateCreatedDateTime,
-                        ModifiedDateTime = group.First().TemplateModifiedDateTime,
-
-                        Sections = group
-                            .Where(s => s.TenderTempSectionId != null)
-                            .Select(s => new TenderTemplateSectionResponseDto
-                            {
-                                TenderTempSectionId = s.TenderTempSectionId.Value,
-                                TenderTemplateHeader = s.TenderTemplateHeader.Value,
-                                SectionId = s.SectionId ?? 0,
-                                Title = s.Title,
-                                Content = s.Content,
-                                ResponseType = s.ResponseType,
-                                Properties = s.Properties,
-                                AcknowledgementStatement = s.AcknowledgementStatement,
-                                Signature = s.Signature,
-                                SectionOrder = s.SectionOrder,
-                                CreatedDateTime = s.SectionCreatedDateTime,
-                                ModifiedDateTime = s.SectionModifiedDateTime
-                            })
-                            .ToList()
-                    })
-                    .FirstOrDefault();
+                var template = BuildTenderTemplateDto(flatData.GroupBy(x => x.TenderTempHeaderId).First());
 
                 return ResponseFactory.Success(template, "Template fetched successfully");
             }
@@ -124,8 +92,6 @@ namespace eTendering.Infrastructure.Service
                 throw;
             }
         }
-
-
 
         public async Task<Guid> UpdateTenderTemplateAsync(UpdateTenderTemplateRequestDto request)
         {
@@ -143,7 +109,7 @@ namespace eTendering.Infrastructure.Service
             });
         }
 
-        public async Task<(int totalRecords,GenericResponseDto<IEnumerable<TenderListDto>>)> GetTenderListAsync(int pageNumber, int pageSize)
+        public async Task<(int totalRecords, GenericResponseDto<IEnumerable<TenderListDto>>)> GetTenderListAsync(int pageNumber, int pageSize)
         {
             try
             {
@@ -155,9 +121,9 @@ namespace eTendering.Infrastructure.Service
                 });
 
                 if (data == null || !data.Any())
-                    return (totalRecords,ResponseFactory.Failure<IEnumerable<TenderListDto>>("Tender headers not found"));
+                    return (totalRecords, ResponseFactory.Failure<IEnumerable<TenderListDto>>("Tender headers not found"));
 
-                return (totalRecords,ResponseFactory.Success(data, "Tender headers fetched successfully"));
+                return (totalRecords, ResponseFactory.Success(data, "Tender headers fetched successfully"));
             }
             catch (Exception)
             {
@@ -200,7 +166,7 @@ namespace eTendering.Infrastructure.Service
         {
             try
             {
-                var  data = await _repo.QueryCustomSingleAsync<TenderTempVendorResponseDto>("dbo.sp_GetVendorResponsesByTemplateHeaderId",
+                var data = await _repo.QueryCustomSingleAsync<TenderTempVendorResponseDto>("dbo.sp_GetVendorResponsesByTemplateHeaderId",
                 new
                 {
                     TenderTemplateHeaderId = tenderTemplateHeaderId
@@ -220,17 +186,17 @@ namespace eTendering.Infrastructure.Service
                 var responseJson = JsonConvert.SerializeObject(templateResult.Data);
 
                 // 5️⃣ Insert into DB
-                await _repo.ExecuteAsync("dbo.sp_InsertTenderTempVendorResponse",new
-                    {
-                        TenderTemplateHeaderId = tenderTemplateHeaderId,
-                        Response = responseJson
-                    });
+                await _repo.ExecuteAsync("dbo.sp_InsertTenderTempVendorResponse", new
+                {
+                    TenderTemplateHeaderId = tenderTemplateHeaderId,
+                    Response = responseJson
+                });
 
                 // 6️⃣ Fetch again
                 var insertedData = await _repo.QueryCustomSingleAsync<TenderTempVendorResponseDto>("dbo.sp_GetVendorResponsesByTemplateHeaderId",
                     new { TenderTemplateHeaderId = tenderTemplateHeaderId });
 
-                return ResponseFactory.Success(insertedData,"Vendor Response created and fetched successfully");
+                return ResponseFactory.Success(insertedData, "Vendor Response created and fetched successfully");
             }
             catch (Exception)
             {
@@ -239,7 +205,7 @@ namespace eTendering.Infrastructure.Service
         }
 
 
-        public  async Task<GenericResponseDto<Guid>> UpsertVendorResponseAsync(UpsertTenderVendorResponseDto request)
+        public async Task<GenericResponseDto<Guid>> UpsertVendorResponseAsync(UpsertTenderVendorResponseDto request)
         {
             try
             {
@@ -258,7 +224,7 @@ namespace eTendering.Infrastructure.Service
             }
         }
 
-        public async Task<GenericResponseDto<bool>>UpdateVendorBidSubmittedDateAsync(Guid tenderId)
+        public async Task<GenericResponseDto<bool>> UpdateVendorBidSubmittedDateAsync(Guid tenderId)
         {
             try
             {
@@ -267,10 +233,10 @@ namespace eTendering.Infrastructure.Service
                     TenderId = tenderId
                 });
 
-            if (rowsAffected == 0)
-                return ResponseFactory.Failure<bool>("No vendor bid found for this tender.");
+                if (rowsAffected == 0)
+                    return ResponseFactory.Failure<bool>("No vendor bid found for this tender.");
 
-            return ResponseFactory.Success(true, "Submitted date updated successfully.");
+                return ResponseFactory.Success(true, "Submitted date updated successfully.");
             }
             catch (Exception)
             {
@@ -280,96 +246,100 @@ namespace eTendering.Infrastructure.Service
 
 
         #region Private Functions
-        /* private void ValidateTemplate(UpdateTenderTemplateRequestDto request)
-         {
-             foreach (var section in request.Sections)
-             {
-                 switch (section.SectionTypeId)
-                 {
-                     case 10:
-                         if (string.IsNullOrWhiteSpace(section.Title) ||
-                             string.IsNullOrWhiteSpace(section.Content))
-                         {
-                             throw new Exception("For SectionType 10, Title and Content are required.");
-                         }
-                         break;
 
-                     case 20:
-                         if (string.IsNullOrWhiteSpace(section.Content) ||
-                             section.ResponseType == null ||
-                             section.Properties == null)
-                         {
-                             throw new Exception("For SectionType 20, Content, ResponseType and Properties are required.");
-                         }
+        /// <summary>
+        /// Builds a TenderTemplateResponseDto with custom tokens and nested sections from flat data
+        /// </summary>
+        private TenderTemplateResponseDto BuildTenderTemplateDto(IGrouping<Guid, TenderTemplateFlatDto> templateGroup)
+        {
+            var firstRow = templateGroup.First();
 
-                         ValidateResponseType(section);
-                         break;
+            // ✅ Extract unique custom tokens
+            var customTokens = templateGroup
+                .Where(x => !string.IsNullOrWhiteSpace(x.TokenName))
+                .GroupBy(x => x.TokenName)
+                .Select(g => new CustomTokenDto
+                {
+                    Name = g.Key!,
+                    Value = g.First().TokenValue
+                })
+                .ToList();
 
-                     case 30:
-                         if (string.IsNullOrWhiteSpace(section.Content) ||
-                             section.AcknowledgementStatement == null)
-                         {
-                             throw new Exception("For SectionType 30, Content and AcknowledgementStatement are required.");
-                         }
-                         break;
+            // ✅ Extract all sections (flat, deduplicated by TenderTempSectionId)
+            var allSections = templateGroup
+                .Where(s => s.TenderTempSectionId != null)
+                .GroupBy(s => s.TenderTempSectionId)
+                .Select(s => new TenderTemplateSectionResponseDto
+                {
+                    TenderTempSectionId = s.Key!.Value,
+                    TenderTemplateHeader = s.First().TenderTemplateHeader ?? Guid.Empty,
+                    SectionId = s.First().SectionId ?? 0,
+                    Title = s.First().Title,
+                    Content = s.First().Content,
+                    ResponseType = s.First().ResponseType,
+                    Properties = s.First().Properties,
+                    AcknowledgementStatement = s.First().AcknowledgementStatement,
+                    Signature = s.First().Signature,
+                    SectionOrder = s.First().SectionOrder,
+                    CreatedDateTime = s.First().SectionCreatedDateTime,
+                    ModifiedDateTime = s.First().SectionModifiedDateTime,
+                    ParentTemplateSectionId = s.First().ParentTemplateSectionId,
+                    Subsections = new List<TenderTemplateSectionResponseDto>()
+                })
+                .ToList();
 
-                     case 40:
-                         //if (string.IsNullOrWhiteSpace(section.Signature))
-                         //{
-                         //   throw new Exception("For SectionType 40, Signature is required.");
-                         //}
-                         break;
+            // ✅ Build nested structure
+            var sectionsDictionary = allSections.ToDictionary(s => s.TenderTempSectionId);
+            var rootSections = new List<TenderTemplateSectionResponseDto>();
 
-                     default:
-                         throw new Exception("Invalid SectionTypeId.");
-                 }
-             }
-         }
-         private void ValidateResponseType(UpdateTenderTemplateRequestDto section)
-         {
-             if (!section.ResponseType.HasValue)
-                 throw new Exception("ResponseType is required.");
+            foreach (var section in allSections)
+            {
+                if (section.ParentTemplateSectionId == null)
+                {
+                    rootSections.Add(section);
+                }
+                else
+                {
+                    if (sectionsDictionary.TryGetValue(section.ParentTemplateSectionId.Value, out var parentSection))
+                    {
+                        parentSection.Subsections.Add(section);
+                    }
+                }
+            }
 
-             if (string.IsNullOrWhiteSpace(section.Properties))
-                 throw new Exception("Properties is required.");
+            // ✅ Sort sections and subsections recursively
+            SortTenderSectionsRecursively(rootSections);
 
-             Dictionary<string, JsonElement>? obj;
+            return new TenderTemplateResponseDto
+            {
+                TenderTempHeaderId = templateGroup.Key,
+                TenderHeaderId = firstRow.TenderHeaderId,
+                Name = firstRow.Name,
+                Description = firstRow.Description,
+                TypeId = firstRow.TypeId,
+                IsDeleted = firstRow.IsDeleted,
+                CreatedDateTime = firstRow.TemplateCreatedDateTime,
+                ModifiedDateTime = firstRow.TemplateModifiedDateTime,
+                CustomTokens = customTokens,
+                Sections = rootSections
+            };
+        }
 
-             try
-             {
-                 obj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(section.Properties);
-             }
-             catch
-             {
-                 throw new Exception("Properties must be a valid JSON string.");
-             }
+        /// <summary>
+        /// Recursively sorts tender template sections and their subsections by SectionOrder
+        /// </summary>
+        private void SortTenderSectionsRecursively(List<TenderTemplateSectionResponseDto> sections)
+        {
+            sections.Sort((a, b) => a.SectionOrder.CompareTo(b.SectionOrder));
 
-             if (obj == null)
-                 throw new Exception("Invalid Properties format.");
-             switch (section.ResponseType.Value)
-             {
-                 case 10:
-                     // if (!obj.ContainsKey("isRequired") || !obj.ContainsKey("maxLength"))
-                     //   throw new Exception("ResponseType 10 requires isRequired and maxLength.");
-                     break;
-
-                 case 20:
-                     //if (!obj.ContainsKey("isRequired") ||
-                     //    !obj.ContainsKey("min") ||
-                     //    !obj.ContainsKey("max"))
-                     //    throw new Exception("ResponseType 20 requires isRequired, min and max.");
-                     break;
-
-                 case 30:
-                     // if (!obj.ContainsKey("isRequired") || !obj.ContainsKey("options"))
-                     //    throw new Exception("ResponseType 30 requires isRequired and options.");
-                     break;
-
-                 default:
-                     throw new Exception("Invalid ResponseType.");
-             }
-         }*/
-
+            foreach (var section in sections)
+            {
+                if (section.Subsections.Any())
+                {
+                    SortTenderSectionsRecursively(section.Subsections);
+                }
+            }
+        }
 
         #endregion
 

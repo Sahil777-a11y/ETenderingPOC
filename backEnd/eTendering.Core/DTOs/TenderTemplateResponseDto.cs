@@ -11,8 +11,10 @@
         public DateTime CreatedDateTime { get; set; }
         public DateTime? ModifiedDateTime { get; set; }
 
+        public List<CustomTokenDto> CustomTokens { get; set; } = new();
         public List<TenderTemplateSectionResponseDto> Sections { get; set; } = new();
     }
+
     public class TenderTemplateSectionResponseDto
     {
         public Guid TenderTempSectionId { get; set; }
@@ -27,8 +29,10 @@
         public int SectionOrder { get; set; }
         public DateTime CreatedDateTime { get; set; }
         public DateTime? ModifiedDateTime { get; set; }
-    }
 
+        public Guid? ParentTemplateSectionId { get; set; }
+        public List<TenderTemplateSectionResponseDto> Subsections { get; set; } = new();
+    }
 
     public class TenderTemplateFlatDto
     {
@@ -45,7 +49,7 @@
 
         // Section
         public Guid? TenderTempSectionId { get; set; }
-        public Guid? TenderTemplateHeader { get; set; }   // optional
+        public Guid? TenderTemplateHeader { get; set; }
         public int? SectionId { get; set; }
 
         public string? Title { get; set; }
@@ -58,7 +62,10 @@
 
         public DateTime SectionCreatedDateTime { get; set; }
         public DateTime? SectionModifiedDateTime { get; set; }
+
+        public Guid? ParentTemplateSectionId { get; set; }
+
+        public string? TokenName { get; set; }
+        public string? TokenValue { get; set; }
     }
-
-
 }
