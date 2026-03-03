@@ -95,9 +95,13 @@ namespace eTendering.Infrastructure.Service
 
         public async Task<Guid> UpdateTenderTemplateAsync(UpdateTenderTemplateRequestDto request)
         {
-            //ValidateTemplate(request);
+            var fullPayload = new
+            {
+                customTokens = request.CustomTokens ?? new List<CustomTokenDto>(),
+                sections = request.Sections
+            };
 
-            var jsonSections = JsonConvert.SerializeObject(request.Sections);
+            var jsonPayload = JsonConvert.SerializeObject(fullPayload);
 
             return await _repo.QueryCustomSingleAsync<Guid>("dbo.sp_UpdateTenderTemplateWithSections", new
             {
@@ -105,7 +109,7 @@ namespace eTendering.Infrastructure.Service
                 request.Name,
                 request.Description,
                 request.TypeId,
-                Sections = jsonSections
+                Sections = jsonPayload
             });
         }
 
