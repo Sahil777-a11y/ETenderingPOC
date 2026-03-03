@@ -1,16 +1,44 @@
-import { useEffect, useMemo, useState } from "react";
-import { Box, Button, Divider, Typography } from "@mui/material";
+/**
+ * VendorForm.tsx
+ *
+ * Vendor form for filling and submitting responses to a tender template.
+ *
+ * - Fetches vendor response via GetVendorResponseByTenderTemplateHeaderId
+ * - Parses the `response` JSON (may be double-encoded) into a
+ *   VendorResponseTemplatePayload with recursive sections
+ * - Hydrates into TemplateBuilderSection[] + PreviewResponseValues via
+ *   hydrateVendorSections() (shares the same hydration logic as tender preview)
+ * - Renders using ReadOnlyPreviewSection with isEditable=true (reuses the
+ *   same recursive renderer as Tender Preview – no duplicate rendering code)
+ * - Content text and section structure are read-only
+ * - Response inputs, acknowledgement checkboxes, and signature canvas are active
+ * - Draft / Save with validation
+ * - Custom tokens resolved from API customTokens
+ */
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Box, Button, Divider, Paper, Typography } from "@mui/material";
 import { useNavigate, useParams } from "react-router";
+
 import MainLayout from "../../MainLayout";
 import { ResponseTypeId, SectionTypeId } from "../../constants";
 import {
   type VendorResponseTemplatePayload,
+  type VendorResponsePayload,
   useGetVendorResponseByTenderTemplateHeaderIdQuery,
+  useGetTenderTemplateForPreviewQuery,
   useUpsertVendorResponseDetailsMutation,
 } from "../../api/Tenders";
-import VendorFormSection, { type VendorFormSectionModel } from "./vendorForm/VendorFormSection";
+import { hydrateVendorSections, hydrateCustomTokens } from "../../utils/hydrateTemplate";
+import ReadOnlyPreviewSection, {
+  type PreviewResponseValues,
+} from "./ReadOnlyPreviewSection";
+import type { TemplateBuilderSection } from "../shared/types";
 import { showToast } from "../shared/ui";
 import type { TemplateTokenContext } from "../../utils/templateTokens";
+import { DEFAULT_TEMPLATE_TOKEN_CONTEXT } from "../../utils/templateTokens";
+
+// ── JSON parsing ────────────────────────────────────────────────────────
 
 const tryParseJson = (value: string) => {
   try {
@@ -20,348 +48,341 @@ const tryParseJson = (value: string) => {
   }
 };
 
-const parseVendorTemplateResponse = (rawResponse: unknown): VendorResponseTemplatePayload | null => {
+/**
+ * Safely extract VendorResponseTemplatePayload from API data.
+ * The `response` field may be a raw string, single-encoded, or double-encoded.
+ * Sections may use PascalCase or camelCase keys.
+ */
+const parseVendorTemplateResponse = (
+  rawResponse: unknown
+): VendorResponseTemplatePayload | null => {
   if (!rawResponse) return null;
 
   let parsed: unknown = rawResponse;
 
-  if (typeof parsed === "string") {
-    parsed = tryParseJson(parsed);
-  }
+  // Unwrap up to two layers of JSON encoding
+  if (typeof parsed === "string") parsed = tryParseJson(parsed);
+  if (typeof parsed === "string") parsed = tryParseJson(parsed);
 
-  if (typeof parsed === "string") {
-    parsed = tryParseJson(parsed);
-  }
+  if (!parsed || typeof parsed !== "object") return null;
 
-  if (!parsed || typeof parsed !== "object") {
-    return null;
-  }
+  const obj = parsed as Record<string, unknown>;
 
-  const parsedObject = parsed as Partial<VendorResponseTemplatePayload> & {
-    Sections?: VendorResponseTemplatePayload["sections"];
-    TenderTempHeaderId?: string;
-    TenderHeaderId?: string;
-    Name?: string;
-    Description?: string;
-    TypeId?: number;
-    IsDeleted?: boolean;
-    CreatedDateTime?: string;
-    ModifiedDateTime?: string | null;
-  };
+  // Normalize PascalCase → camelCase at root level
+  const sections = (
+    Array.isArray(obj.sections) ? obj.sections :
+    Array.isArray(obj.Sections) ? obj.Sections : []
+  ) as VendorResponsePayload[];
 
-  const sourceSections = Array.isArray(parsedObject.sections)
-    ? parsedObject.sections
-    : Array.isArray(parsedObject.Sections)
-      ? parsedObject.Sections
-      : [];
-
-  const normalizedSections = sourceSections.map((section) => {
-    const sectionObj = section as Partial<(typeof sourceSections)[number]> & {
-      TenderTempSectionId?: string;
-      TenderTemplateHeader?: string;
-      SectionId?: number;
-      Title?: string;
-      Content?: string;
-      ResponseType?: number;
-      Properties?: string;
-      AcknowledgementStatement?: string;
-      Signature?: string;
-      Response?: string | number | boolean | null;
-      SectionOrder?: number;
-      CreatedDateTime?: string;
-      ModifiedDateTime?: string | null;
-    };
-
-    return {
-      ...sectionObj,
-      tenderTempSectionId:
-        sectionObj.tenderTempSectionId ||
-        sectionObj.TenderTempSectionId ||
-        "",
-      tenderTemplateHeader:
-        sectionObj.tenderTemplateHeader ||
-        sectionObj.TenderTemplateHeader ||
-        "",
-      sectionId: Number(sectionObj.sectionId ?? sectionObj.SectionId ?? 0),
-      title: sectionObj.title ?? sectionObj.Title ?? "",
-      content: sectionObj.content ?? sectionObj.Content ?? "",
-      responseType: Number(sectionObj.responseType ?? sectionObj.ResponseType ?? 0),
-      properties: sectionObj.properties ?? sectionObj.Properties ?? "",
-      acknowledgementStatement:
-        sectionObj.acknowledgementStatement ??
-        sectionObj.AcknowledgementStatement ??
-        "",
-      signature: sectionObj.signature ?? sectionObj.Signature ?? "",
-      response: sectionObj.response ?? sectionObj.Response ?? "",
-      sectionOrder: Number(sectionObj.sectionOrder ?? sectionObj.SectionOrder ?? 0),
-      createdDateTime:
-        sectionObj.createdDateTime ||
-        sectionObj.CreatedDateTime ||
-        "",
-      modifiedDateTime:
-        sectionObj.modifiedDateTime ??
-        sectionObj.ModifiedDateTime ??
-        null,
-    };
-  });
+  // Recursively normalize section keys (backend may return PascalCase)
+  const normalizeSections = (
+    raw: unknown[]
+  ): VendorResponsePayload[] =>
+    raw.map((s) => {
+      const sec = s as Record<string, unknown>;
+      const children = Array.isArray(sec.subsections)
+        ? sec.subsections
+        : Array.isArray(sec.Subsections)
+          ? sec.Subsections
+          : [];
+      return {
+        tenderTempSectionId:
+          (sec.tenderTempSectionId ?? sec.TenderTempSectionId ?? "") as string,
+        tenderTemplateHeader:
+          (sec.tenderTemplateHeader ?? sec.TenderTemplateHeader ?? "") as string,
+        sectionId: Number(sec.sectionId ?? sec.SectionId ?? 0),
+        title: (sec.title ?? sec.Title ?? "") as string,
+        content: (sec.content ?? sec.Content ?? "") as string,
+        responseType: Number(sec.responseType ?? sec.ResponseType ?? 0),
+        properties: (sec.properties ?? sec.Properties ?? "") as string,
+        acknowledgementStatement:
+          (sec.acknowledgementStatement ?? sec.AcknowledgementStatement ?? "") as string,
+        signature: (sec.signature ?? sec.Signature ?? "") as string,
+        response: (sec.response ?? sec.Response ?? "") as string | number | boolean | null,
+        sectionOrder: Number(sec.sectionOrder ?? sec.SectionOrder ?? 0),
+        parentTemplateSectionId:
+          (sec.parentTemplateSectionId ?? sec.ParentTemplateSectionId ?? null) as string | null,
+        subsections: normalizeSections(children as unknown[]),
+        createdDateTime: (sec.createdDateTime ?? sec.CreatedDateTime ?? "") as string,
+        modifiedDateTime: (sec.modifiedDateTime ?? sec.ModifiedDateTime ?? null) as string | null,
+      };
+    });
 
   return {
     tenderTempHeaderId:
-      parsedObject.tenderTempHeaderId ||
-      parsedObject.TenderTempHeaderId ||
-      "",
+      (obj.tenderTempHeaderId ?? obj.TenderTempHeaderId ?? "") as string,
     tenderHeaderId:
-      parsedObject.tenderHeaderId ||
-      parsedObject.TenderHeaderId ||
-      "",
-    name: parsedObject.name || parsedObject.Name || "",
-    description: parsedObject.description || parsedObject.Description || "",
-    typeId: Number(parsedObject.typeId ?? parsedObject.TypeId ?? 0),
-    isDeleted: Boolean(parsedObject.isDeleted ?? parsedObject.IsDeleted),
-    createdDateTime:
-      parsedObject.createdDateTime ||
-      parsedObject.CreatedDateTime ||
-      "",
+      (obj.tenderHeaderId ?? obj.TenderHeaderId ?? "") as string,
+    name: (obj.name ?? obj.Name ?? "") as string,
+    description: (obj.description ?? obj.Description ?? "") as string,
+    typeId: Number(obj.typeId ?? obj.TypeId ?? 0),
+    isDeleted: Boolean(obj.isDeleted ?? obj.IsDeleted),
+    createdDateTime: (obj.createdDateTime ?? obj.CreatedDateTime ?? "") as string,
     modifiedDateTime:
-      parsedObject.modifiedDateTime ??
-      parsedObject.ModifiedDateTime ??
-      null,
-    sections: normalizedSections,
+      (obj.modifiedDateTime ?? obj.ModifiedDateTime ?? null) as string | null,
+    customTokens: Array.isArray(obj.customTokens ?? obj.CustomTokens)
+      ? (obj.customTokens ?? obj.CustomTokens) as { name: string; value: string }[]
+      : undefined,
+    sections: normalizeSections(sections as unknown[]),
   };
 };
 
-const parseSectionProperties = (properties?: string) => {
-  if (!properties) return undefined;
+// ── Serializer: embed vendor responses back into the payload structure ──
 
-  try {
-    return JSON.parse(properties) as {
-      isRequired?: boolean;
-      min?: number;
-      max?: number;
-      maxLength?: number;
-    };
-  } catch {
-    return undefined;
+function serializeVendorSections(
+  sections: TemplateBuilderSection[],
+  responseValues: PreviewResponseValues
+): VendorResponsePayload[] {
+  return sections.map((s) => ({
+    tenderTempSectionId: s.sectionUniqueId || s.id,
+    tenderTemplateHeader: "",
+    sectionId: s.sectionTypeId,
+    title: s.title || "",
+    content: s.content || "",
+    responseType: s.responseTypeId ?? 0,
+    properties: s.properties ? JSON.stringify(s.properties) : "",
+    acknowledgementStatement:
+      s.sectionTypeId === SectionTypeId.Acknowledgement
+        ? s.acknowledgementStatement || ""
+        : "",
+    signature:
+      s.sectionTypeId === SectionTypeId.ESignature
+        ? (responseValues[s.id] as string | undefined) || s.signature || ""
+        : s.signature || "",
+    response:
+      s.sectionTypeId === SectionTypeId.Statement
+        ? ""
+        : (responseValues[s.id] ?? ""),
+    sectionOrder: s.order,
+    subsections: s.subsections
+      ? serializeVendorSections(s.subsections, responseValues)
+      : [],
+    createdDateTime: "",
+    modifiedDateTime: null,
+  }));
+}
+
+// ── Recursive validation ────────────────────────────────────────────────
+
+function validateSectionsRecursive(
+  sections: TemplateBuilderSection[],
+  responseValues: PreviewResponseValues,
+  errors: Record<string, string>
+): void {
+  for (const section of sections) {
+    if (section.sectionTypeId === SectionTypeId.Response) {
+      const isRequired = Boolean(section.properties?.isRequired);
+      const value = responseValues[section.id];
+
+      if (section.responseTypeId === ResponseTypeId.Text) {
+        const text = String(value ?? "");
+        if (isRequired && text.trim() === "") {
+          errors[section.id] = "This field is required.";
+        } else {
+          const maxLen = (section.properties as { maxLength?: number } | undefined)?.maxLength;
+          if (typeof maxLen === "number" && text.length > maxLen) {
+            errors[section.id] = `Maximum length is ${maxLen} characters.`;
+          }
+        }
+      }
+
+      if (section.responseTypeId === ResponseTypeId.Numeric) {
+        const hasValue = value !== "" && value !== undefined && value !== null;
+        if (isRequired && !hasValue) {
+          errors[section.id] = "This field is required.";
+        } else if (hasValue) {
+          const num = Number(value);
+          if (Number.isNaN(num)) {
+            errors[section.id] = "Enter a valid number.";
+          } else {
+            const props = section.properties as { min?: number; max?: number } | undefined;
+            if (typeof props?.min === "number" && num < props.min)
+              errors[section.id] = `Minimum value is ${props.min}.`;
+            if (typeof props?.max === "number" && num > props.max)
+              errors[section.id] = `Maximum value is ${props.max}.`;
+          }
+        }
+      }
+
+      if (section.responseTypeId === ResponseTypeId.List) {
+        if (isRequired && !String(value ?? "").trim()) {
+          errors[section.id] = "Please select an option.";
+        }
+      }
+    }
+
+    // Recurse into subsections
+    if (section.subsections?.length) {
+      validateSectionsRecursive(section.subsections, responseValues, errors);
+    }
   }
-};
+}
 
-const normalizeSectionType = (sectionId?: number) => {
-  const normalized = Number(sectionId);
-
-  if (normalized === 1 || normalized === SectionTypeId.Statement) return SectionTypeId.Statement;
-  if (normalized === 2 || normalized === SectionTypeId.Response) return SectionTypeId.Response;
-  if (normalized === 3 || normalized === SectionTypeId.Acknowledgement) return SectionTypeId.Acknowledgement;
-  if (normalized === 4 || normalized === SectionTypeId.ESignature) return SectionTypeId.ESignature;
-
-  return normalized;
-};
+// ── Component ───────────────────────────────────────────────────────────
 
 const VendorForm = () => {
   const navigate = useNavigate();
   const { tempId } = useParams<{ tempId: string }>();
-  const [sections, setSections] = useState<VendorFormSectionModel[]>([]);
-  const [sectionValidationErrors, setSectionValidationErrors] = useState<Record<string, string>>({});
-  const [upsertVendorResponseDetails, { isLoading: isSaving }] =
-    useUpsertVendorResponseDetailsMutation();
 
-  const { data, isLoading, isError, refetch } = useGetVendorResponseByTenderTemplateHeaderIdQuery(tempId || "", {
-    skip: !tempId,
-    refetchOnMountOrArgChange: true,
-  });
+  // ── Response values (flat map shared across all nesting levels) ────
+  const [responseValues, setResponseValues] = useState<PreviewResponseValues>({});
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const vendorResponse = data?.data;
-  const parsedTemplate = useMemo(() => {
-    const fromResponse = parseVendorTemplateResponse(vendorResponse?.response);
-    if (fromResponse) return fromResponse;
-
-    return parseVendorTemplateResponse(vendorResponse);
-  }, [vendorResponse]);
-
-  const tokenContext = useMemo<TemplateTokenContext>(
-    () => ({
-      ORG_NAME: "Mohawk",
-      PROJECT_NAME: "E-Tendering",
-      TEMPLATE_NAME: parsedTemplate?.name,
-      TEMPLATE_ID: parsedTemplate?.tenderTempHeaderId,
-      TENDER_ID: parsedTemplate?.tenderHeaderId,
-    }),
-    [
-      parsedTemplate?.name,
-      parsedTemplate?.tenderHeaderId,
-      parsedTemplate?.tenderTempHeaderId,
-    ]
-  );
-
-  useEffect(() => {
-    const mappedSections = [...(parsedTemplate?.sections ?? [])]
-      .sort((a, b) => (a.sectionOrder ?? Number.MAX_SAFE_INTEGER) - (b.sectionOrder ?? Number.MAX_SAFE_INTEGER))
-      .map((section) => ({
-        tenderTempSectionId: section.tenderTempSectionId,
-        sectionId: Number(section.sectionId),
-        title: section.title || "",
-        content: section.content || "",
-        responseType: Number(section.responseType || 0),
-        properties: section.properties || "",
-        acknowledgementStatement: section.acknowledgementStatement || "",
-        response: section.response ?? "",
-        sectionOrder: section.sectionOrder,
-      }));
-
-    setSections(mappedSections);
-  }, [parsedTemplate?.sections]);
-
-  const handleResponseChange = (sectionId: string, value: string | number | boolean) => {
-    if (sectionValidationErrors[sectionId]) {
-      setSectionValidationErrors((prev) => {
+  const handleResponseChange = useCallback(
+    (sectionId: string, value: string | number | boolean) => {
+      // Clear validation error on change
+      setValidationErrors((prev) => {
+        if (!prev[sectionId]) return prev;
         const next = { ...prev };
         delete next[sectionId];
         return next;
       });
-    }
-
-    setSections((prev) =>
-      prev.map((section) =>
-        section.tenderTempSectionId === sectionId
-          ? { ...section, response: value }
-          : section
-      )
-    );
-  };
-
-  const hasExistingDraft = Boolean(
-    (vendorResponse?.resposneId && vendorResponse.resposneId !== "00000000-0000-0000-0000-000000000000") ||
-    (vendorResponse?.responseId && vendorResponse.responseId !== "00000000-0000-0000-0000-000000000000")
+      setResponseValues((prev) => ({ ...prev, [sectionId]: value }));
+    },
+    []
   );
 
-  const buildUpdatedResponsePayload = () => {
-    if (!parsedTemplate) return null;
+  // ── Save mutation ─────────────────────────────────────────────────
+  const [upsertVendorResponseDetails, { isLoading: isSaving }] =
+    useUpsertVendorResponseDetailsMutation();
 
-    const mergedSections = (parsedTemplate.sections ?? []).map((originalSection) => {
-      const updatedSection = sections.find(
-        (section) => section.tenderTempSectionId === originalSection.tenderTempSectionId
-      );
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useGetVendorResponseByTenderTemplateHeaderIdQuery(tempId || "", {
+    skip: !tempId,
+    refetchOnMountOrArgChange: true,
+  });
 
-      if (!updatedSection) return originalSection;
+  // Fetch the tender template preview specifically to get authoritative customTokens.
+  // The vendor response JSON may not carry them (they are set by the tender admin).
+  const { data: previewData } = useGetTenderTemplateForPreviewQuery(tempId || "", {
+    skip: !tempId,
+  });
 
-      return {
-        ...originalSection,
-        response: updatedSection.response ?? "",
-      };
-    });
+  const vendorResponse = data?.data;
 
-    return {
-      ...parsedTemplate,
-      sections: mergedSections,
+  // ── Parse the response JSON ─────────────────────────────────────
+  const parsedTemplate = useMemo(() => {
+    const fromResponse = parseVendorTemplateResponse(vendorResponse?.response);
+    if (fromResponse) return fromResponse;
+    return parseVendorTemplateResponse(vendorResponse);
+  }, [vendorResponse]);
+
+  // ── Hydrate sections for rendering ────────────────────────────
+  const hydratedSections = useMemo(() => {
+    if (!parsedTemplate?.sections) return [];
+    // seedValues is ignored here — seeding into state is done by the effect below.
+    return hydrateVendorSections(parsedTemplate.sections, {});
+  }, [parsedTemplate?.sections]);
+
+  // Re-seed responseValues every time the underlying API response changes.
+  //
+  // We depend on `vendorResponse` (the raw API data object) rather than the
+  // derived `sections` memo, because:
+  //   - `vendorResponse` only gets a new reference when RTK Query returns a
+  //     new network result — it is stable while the user is typing.
+  //   - This naturally handles the back-navigation scenario: RTK Query
+  //     refetches (refetchOnMountOrArgChange:true), `vendorResponse` gets a
+  //     new reference, and this effect fires → inputs prefill from saved data.
+  //
+  // We also reset validationErrors whenever the template id changes so stale
+  // errors don't bleed across tenders.
+  useEffect(() => {
+    const seedValues: PreviewResponseValues = {};
+
+    if (parsedTemplate?.sections) {
+      hydrateVendorSections(parsedTemplate.sections, seedValues);
+    }
+
+    setResponseValues(seedValues);
+    setValidationErrors({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorResponse, tempId]);
+
+  // ── Token context ──────────────────────────────────────────────
+  const tokenContext = useMemo<TemplateTokenContext>(() => {
+    const ctx: TemplateTokenContext = {
+      ...DEFAULT_TEMPLATE_TOKEN_CONTEXT,
     };
-  };
 
-  const validateSections = () => {
-    const validationErrors: Record<string, string> = {};
+    // 1. Overlay tokens embedded in the saved vendor response (may be absent)
+    const embeddedTokens = hydrateCustomTokens(parsedTemplate?.customTokens);
+    for (const ct of embeddedTokens) {
+      if (ct.name) ctx[ct.name] = ct.value;
+    }
 
-    sections.forEach((section) => {
-      const sectionTypeId = normalizeSectionType(section.sectionId);
-      if (sectionTypeId !== SectionTypeId.Response) return;
+    // 2. Overlay tokens from the live tender template preview (authoritative —
+    //    these are set by the tender admin and are always up-to-date).
+    const previewTokens = hydrateCustomTokens(previewData?.data?.customTokens);
+    for (const ct of previewTokens) {
+      if (ct.name) ctx[ct.name] = ct.value;
+    }
 
-      const properties = parseSectionProperties(section.properties);
-      const isRequired = Boolean(properties?.isRequired);
+    ctx.TEMPLATE_NAME = parsedTemplate?.name ?? ctx.TEMPLATE_NAME;
+    ctx.TEMPLATE_ID = parsedTemplate?.tenderTempHeaderId ?? ctx.TEMPLATE_ID;
+    ctx.TENDER_ID = parsedTemplate?.tenderHeaderId ?? ctx.TENDER_ID;
 
-      if (section.responseType === ResponseTypeId.Text) {
-        const textValue = String(section.response ?? "");
+    return ctx;
+  }, [
+    parsedTemplate?.customTokens,
+    parsedTemplate?.name,
+    parsedTemplate?.tenderHeaderId,
+    parsedTemplate?.tenderTempHeaderId,
+    previewData?.data?.customTokens,
+  ]);
 
-        if (isRequired && textValue.trim() === "") {
-          validationErrors[section.tenderTempSectionId] = "This field is required.";
-          return;
-        }
+  // ── Sort top-level sections ────────────────────────────────────
+  const sortedSections = useMemo(
+    () => [...hydratedSections].sort((a, b) => a.order - b.order),
+    [hydratedSections]
+  );
 
-        if (
-          typeof properties?.maxLength === "number" &&
-          textValue.length > properties.maxLength
-        ) {
-          validationErrors[section.tenderTempSectionId] =
-            `Maximum length is ${properties.maxLength} characters.`;
-        }
+  // ── Existing draft detection ──────────────────────────────────
+  const hasExistingDraft = Boolean(
+    (vendorResponse?.resposneId &&
+      vendorResponse.resposneId !== "00000000-0000-0000-0000-000000000000") ||
+      (vendorResponse?.responseId &&
+        vendorResponse.responseId !== "00000000-0000-0000-0000-000000000000")
+  );
 
-        return;
-      }
-
-      if (section.responseType === ResponseTypeId.Numeric) {
-        const rawValue = section.response;
-        const hasValue = !(
-          rawValue === "" ||
-          rawValue === null ||
-          rawValue === undefined ||
-          (typeof rawValue === "string" && rawValue.trim() === "")
-        );
-
-        if (isRequired && !hasValue) {
-          validationErrors[section.tenderTempSectionId] = "This field is required.";
-          return;
-        }
-
-        if (!hasValue) return;
-
-        const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
-
-        if (Number.isNaN(numericValue)) {
-          validationErrors[section.tenderTempSectionId] = "Enter a valid number.";
-          return;
-        }
-
-        if (typeof properties?.min === "number" && numericValue < properties.min) {
-          validationErrors[section.tenderTempSectionId] = `Minimum value is ${properties.min}.`;
-          return;
-        }
-
-        if (typeof properties?.max === "number" && numericValue > properties.max) {
-          validationErrors[section.tenderTempSectionId] = `Maximum value is ${properties.max}.`;
-        }
-
-        return;
-      }
-
-      if (section.responseType === ResponseTypeId.List) {
-        const value = String(section.response ?? "").trim();
-
-        if (isRequired && value === "") {
-          validationErrors[section.tenderTempSectionId] = "Please select an option.";
-        }
-      }
-    });
-
-    setSectionValidationErrors(validationErrors);
-    return Object.keys(validationErrors).length === 0;
-  };
-
+  // ── Save / Draft handler ──────────────────────────────────────
   const handleUpsert = async (isCompleted: boolean) => {
     if (!tempId) {
       showToast({ message: "Template id is missing.", type: "error" });
       return;
     }
 
-    const updatedTemplatePayload = buildUpdatedResponsePayload();
-
-    if (!updatedTemplatePayload) {
+    if (!parsedTemplate) {
       showToast({ message: "Unable to build vendor response payload.", type: "error" });
       return;
     }
 
+    // Validate only on final save
     if (isCompleted) {
-      const isValid = validateSections();
-      if (!isValid) {
-        showToast({
-          message: "Please fix validation errors before saving.",
-          type: "error",
-        });
+      const errors: Record<string, string> = {};
+      validateSectionsRecursive(sortedSections, responseValues, errors);
+      setValidationErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        showToast({ message: "Please fix validation errors before saving.", type: "error" });
         return;
       }
     } else {
-      setSectionValidationErrors({});
+      setValidationErrors({});
     }
+
+    // Build payload preserving the original template structure
+    const updatedPayload: VendorResponseTemplatePayload = {
+      ...parsedTemplate,
+      sections: serializeVendorSections(sortedSections, responseValues),
+    };
 
     try {
       const response = await upsertVendorResponseDetails({
         tenderTemplarteHeaderId: tempId,
-        response: JSON.stringify(updatedTemplatePayload),
+        response: JSON.stringify(updatedPayload),
         isCompleted,
       }).unwrap();
 
@@ -401,43 +422,80 @@ const VendorForm = () => {
     }
   };
 
-
-
   return (
     <MainLayout>
-      <Box sx={{ mt: 2.5, mb: 2.5, paddingRight: "15px" }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      <Box sx={{ p: 4, display: "flex", flexDirection: "column", height: "100%" }}>
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
           {parsedTemplate?.name || "Vendor Form"}
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {parsedTemplate?.description || "Fill the sections below and save your response."}
-        </Typography>
-
-        {!tempId && <Typography color="error" sx={{ mt: 2 }}>Template id is missing.</Typography>}
-        {isLoading && <Typography sx={{ mt: 2 }}>Loading vendor form...</Typography>}
-        {isError && <Typography color="error" sx={{ mt: 2 }}>Failed to load vendor form.</Typography>}
-
-        {!isLoading && !isError && (
-          <>
-            <Box sx={{ mt: 2 }}>
-              {sections.length === 0 && (
-                <Typography color="text.secondary">No sections found for this template.</Typography>
-              )}
-
-              {sections.map((section) => (
-                <VendorFormSection
-                  key={section.tenderTempSectionId}
-                  section={section}
-                  onResponseChange={handleResponseChange}
-                  validationError={sectionValidationErrors[section.tenderTempSectionId]}
-                  tokenContext={tokenContext}
-                />
-              ))}
-            </Box>
-          </>
+        {parsedTemplate?.description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {parsedTemplate.description}
+          </Typography>
         )}
 
+        {!parsedTemplate?.description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Fill the sections below and save your response.
+          </Typography>
+        )}
+
+        {!tempId && (
+          <Typography color="error" sx={{ mt: 2 }}>
+            Template id is missing.
+          </Typography>
+        )}
+
+        <Divider sx={{ mb: 3 }} />
+
+        {/* ── Content area ───────────────────────────────────────── */}
+        <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+          {isLoading && <Typography>Loading vendor form…</Typography>}
+          {isError && (
+            <Typography color="error">Failed to load vendor form.</Typography>
+          )}
+
+          {!isLoading && !isError && sortedSections.length === 0 && (
+            <Typography color="text.secondary">
+              No sections found for this template.
+            </Typography>
+          )}
+
+          {!isLoading &&
+            !isError &&
+            sortedSections.map((section, index) => (
+              <Paper
+                key={section.id}
+                variant="outlined"
+                sx={{ p: 3, mb: 2, borderRadius: 2 }}
+              >
+                <ReadOnlyPreviewSection
+                  section={section}
+                  tokenContext={tokenContext}
+                  depth={0}
+                  sectionNumber={`${index + 1}`}
+                  isEditable
+                  responseValues={responseValues}
+                  onResponseChange={handleResponseChange}
+                />
+
+                {/* Show validation error for this top-level section */}
+                {validationErrors[section.id] && (
+                  <Typography
+                    variant="caption"
+                    color="error"
+                    sx={{ display: "block", mt: 1 }}
+                  >
+                    {validationErrors[section.id]}
+                  </Typography>
+                )}
+              </Paper>
+            ))}
+        </Box>
+
+        {/* ── Footer ─────────────────────────────────────────────── */}
         <Divider sx={{ my: 3 }} />
 
         <Box display="flex" justifyContent="space-between" gap={1} flexWrap="wrap">
@@ -446,18 +504,18 @@ const VendorForm = () => {
           <Box display="flex" gap={1}>
             <Button
               variant="outlined"
-              disabled={isLoading || isError || isSaving || sections.length === 0}
+              disabled={isLoading || isError || isSaving || sortedSections.length === 0}
               onClick={() => handleUpsert(false)}
             >
-              Draft
+              {isSaving ? "Saving…" : "Draft"}
             </Button>
 
             <Button
               variant="contained"
-              disabled={isLoading || isError || isSaving || sections.length === 0}
+              disabled={isLoading || isError || isSaving || sortedSections.length === 0}
               onClick={() => handleUpsert(true)}
             >
-              {isSaving ? "Saving..." : "Save"}
+              {isSaving ? "Saving…" : "Save"}
             </Button>
           </Box>
         </Box>

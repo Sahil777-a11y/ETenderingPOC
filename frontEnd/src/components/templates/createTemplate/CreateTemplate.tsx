@@ -15,12 +15,20 @@ import {
 } from "../../../api/Templates";
 import { showToast } from "../../shared/ui";
 import { useNavigate, useParams } from "react-router";
-import type { TemplateBuilderSection } from "../../shared/types";
+import type { TemplateBuilderSection, CustomToken } from "../../shared/types";
 import {
-  ResponseTypeId,
   SectionTypeId,
 } from "../../../constants";
-import type { TemplateTokenContext } from "../../../utils/templateTokens";
+import {
+  PLACEHOLDER_TOKEN_OPTIONS,
+  DEFAULT_TEMPLATE_TOKEN_CONTEXT,
+  type TemplateTokenContext,
+  type PlaceholderTokenOption,
+} from "../../../utils/templateTokens";
+import {
+  hydrateApiSections,
+  hydrateCustomTokens,
+} from "../../../utils/hydrateTemplate";
 
 interface TemplateBasic {
   name: string;
@@ -51,6 +59,7 @@ const CreateTemplate = () => {
   });
   const [sections, setSections] = useState<TemplateBuilderSection[]>([]);
   const [hasEditingSections, setHasEditingSections] = useState(false);
+  const [customTokens, setCustomTokens] = useState<CustomToken[]>([]);
 
   const templateToEdit = useMemo(
     () => templateByIdResponse?.data,
@@ -60,80 +69,18 @@ const CreateTemplate = () => {
   useEffect(() => {
     if (!isEditMode || !templateToEdit) return;
 
+    // ── 1. Prefill basic details ──────────────────────────────────────
     setBasicData({
       name: templateToEdit.templateName || "",
       description: templateToEdit.description || "",
       type: templateToEdit.typeId ?? "",
     });
 
-    const mappedSections: TemplateBuilderSection[] = (templateToEdit.sections ?? []).map((section, index) => {
-      const sectionTypeFromApi = Number(section.sectionId) as
-        | typeof SectionTypeId[keyof typeof SectionTypeId]
-        | 0;
-      const isValidSectionType = Object.values(SectionTypeId).includes(
-        sectionTypeFromApi as typeof SectionTypeId[keyof typeof SectionTypeId]
-      );
+    // ── 2. Prefill custom tokens ──────────────────────────────────────
+    setCustomTokens(hydrateCustomTokens(templateToEdit.customTokens));
 
-      const sectionResponseType = Number(section.responseType) as
-        | typeof ResponseTypeId[keyof typeof ResponseTypeId]
-        | 0;
-
-      const parsedProperties = (() => {
-        if (!section.properties) return undefined;
-
-        if (typeof section.properties === "string") {
-          try {
-            return JSON.parse(section.properties);
-          } catch {
-            return undefined;
-          }
-        }
-
-        return section.properties;
-      })();
-
-      const isResponseTypeValue = [
-        ResponseTypeId.Text,
-        ResponseTypeId.Numeric,
-        ResponseTypeId.List,
-      ].includes(sectionResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId]);
-
-      const inferredSectionType = isResponseTypeValue
-        ? SectionTypeId.Response
-        : SectionTypeId.Statement;
-      const mappedSectionType = isValidSectionType
-        ? (sectionTypeFromApi as typeof SectionTypeId[keyof typeof SectionTypeId])
-        : inferredSectionType;
-
-      const mappedResponseType =
-        mappedSectionType === SectionTypeId.Response && isResponseTypeValue
-          ? (sectionResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId])
-          : undefined;
-
-      const mappedAcknowledgementStatement =
-        mappedSectionType === SectionTypeId.Acknowledgement
-          ? typeof section.acknowledgementStatement === "string"
-            ? section.acknowledgementStatement
-            : section.acknowledgementStatement
-              ? "I acknowledge"
-              : ""
-          : "";
-
-      return {
-        id: section.sectionUniqueId || crypto.randomUUID(),
-        sectionUniqueId: section.sectionUniqueId || undefined,
-        sectionTypeId: mappedSectionType,
-        order: section.sectionOrder || index + 1,
-        title: section.title || "",
-        content: section.content || "",
-        responseTypeId: mappedResponseType,
-        properties: parsedProperties,
-        acknowledgementStatement: mappedAcknowledgementStatement,
-        signature: "",
-      };
-    });
-
-    setSections(mappedSections);
+    // ── 3. Prefill sections (recursive — handles nested subsections) ─
+    setSections(hydrateApiSections(templateToEdit.sections));
   }, [isEditMode, templateToEdit]);
 
   const handleBasicChange = (
@@ -150,13 +97,60 @@ const CreateTemplate = () => {
     basicData.name.trim() !== "" &&
     basicData?.type?.toString().trim() !== "";
 
+  // ── Merged token options: built-in + custom ──────────────────────────
+  const mergedTokenOptions: PlaceholderTokenOption[] = useMemo(
+    () => [
+      ...PLACEHOLDER_TOKEN_OPTIONS,
+      ...customTokens
+        .filter((t) => t.name.trim())
+        .map((t) => ({ label: t.name.trim(), value: t.name.trim() })),
+    ],
+    [customTokens]
+  );
+
+  // ── Token context for preview resolution ─────────────────────────────
   const tokenContext: TemplateTokenContext = useMemo(
     () => ({
+      ...DEFAULT_TEMPLATE_TOKEN_CONTEXT,
       TEMPLATE_NAME: basicData.name.trim(),
       TEMPLATE_ID: id || undefined,
+      // Map custom tokens — store both exact name and trimmed variants
+      ...Object.fromEntries(
+        customTokens
+          .filter((t) => t.name.trim())
+          .map((t) => [t.name.trim(), t.value.trim()])
+      ),
     }),
-    [basicData.name, id]
+    [basicData.name, id, customTokens]
   );
+
+  // ── Recursive section serializer for API payload ─────────────────────
+  const serializeSections = (
+    secs: TemplateBuilderSection[]
+  ): any[] =>
+    [...secs]
+      .sort((a, b) => a.order - b.order)
+      .map((section, index) => ({
+        ...(section.sectionUniqueId
+          ? { id: section.sectionUniqueId }
+          : {}),
+        sectionTypeId: section.sectionTypeId,
+        sectionOrder: section.order || index + 1,
+        title: section.title || "",
+        content: section.content || "",
+        responseType: section.responseTypeId ?? 0,
+        properties: section.properties
+          ? JSON.stringify(section.properties)
+          : "",
+        acknowledgementStatement:
+          section.sectionTypeId === SectionTypeId.Acknowledgement
+            ? section.acknowledgementStatement || ""
+            : "",
+        signature: section.signature || "",
+        subsections: section.subsections?.length
+          ? serializeSections(section.subsections)
+          : [],
+      }));
 
   const handleNext = async () => {
     if (activeStep === "basic") {
@@ -187,26 +181,10 @@ const CreateTemplate = () => {
         name: basicData.name.trim(),
         description: basicData.description.trim(),
         typeId: Number(basicData.type),
-        sections: sections
-          .sort((a, b) => a.order - b.order)
-          .map((section, index) => ({
-            ...(section.sectionUniqueId
-              ? { id: section.sectionUniqueId }
-              : {}),
-            sectionTypeId: section.sectionTypeId,
-            sectionOrder: section.order || index + 1,
-            title: section.title || "",
-            content: section.content || "",
-            responseType: section.responseTypeId ?? 0,
-            properties: section.properties
-              ? JSON.stringify(section.properties)
-              : "",
-            acknowledgementStatement:
-              section.sectionTypeId === SectionTypeId.Acknowledgement
-                ? section.acknowledgementStatement || ""
-                : "",
-            signature: section.signature || "",
-          })),
+        customTokens: customTokens
+          .filter((t) => t.name.trim())
+          .map((t) => ({ name: t.name.trim(), value: t.value.trim() })),
+        sections: serializeSections(sections),
       };
 
       try {
@@ -294,6 +272,8 @@ const CreateTemplate = () => {
             <BasicStep
               data={basicData}
               onChange={handleBasicChange}
+              customTokens={customTokens}
+              onCustomTokensChange={setCustomTokens}
             />
           )}
 
@@ -303,6 +283,7 @@ const CreateTemplate = () => {
               onSectionsChange={setSections}
               onEditingStateChange={setHasEditingSections}
               tokenContext={tokenContext}
+              tokenOptions={mergedTokenOptions}
             />
           )}
         </Box>

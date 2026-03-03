@@ -18,8 +18,15 @@ export interface TemplateSection {
   sectionOrder: number;
   properties: unknown;
   acknowledgementStatement: string | boolean;
-  sectionCreatedDateTime: string;
-  sectionModifiedDateTime: string | null;
+  parentTemplateSectionId: string | null;
+  subsections: TemplateSection[];
+  sectionCreatedDateTime?: string;
+  sectionModifiedDateTime?: string | null;
+}
+
+export interface ApiCustomToken {
+  name: string;
+  value: string;
 }
 
 export interface TemplateType {
@@ -36,6 +43,7 @@ export interface TemplateListItem {
   isDeleted: boolean;
   templateCreatedDateTime: string;
   templateModifiedDateTime: string | null;
+  customTokens?: ApiCustomToken[];
   sections: TemplateSection[];
 }
 
@@ -49,6 +57,7 @@ export interface UpsertTemplateSectionPayload {
   properties: string;
   acknowledgementStatement: string;
   signature: string;
+  subsections: UpsertTemplateSectionPayload[];
 }
 
 export interface UpsertTemplatePayload {
@@ -56,6 +65,7 @@ export interface UpsertTemplatePayload {
   name: string;
   description: string;
   typeId: number;
+  customTokens?: { name: string; value: string }[];
   sections: UpsertTemplateSectionPayload[];
 }
 

@@ -1,6 +1,12 @@
 
 import type { ResponseTypeId, SectionTypeId } from "../../../constants";
 
+export interface CustomToken {
+  id: string;
+  name: string;
+  value: string;
+}
+
 export interface TemplateBuilderSection {
   id: string;
   sectionUniqueId?: string;
@@ -21,6 +27,9 @@ export interface TemplateBuilderSection {
 
   // Signature
   signature?: string; // base64 later
+
+  // Nested subsections (recursive)
+  subsections?: TemplateBuilderSection[];
 }
 
 export type ResponseProperties =

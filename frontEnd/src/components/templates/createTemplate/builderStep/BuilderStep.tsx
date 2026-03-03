@@ -12,6 +12,19 @@ import type {
 
 const uuid = () => crypto.randomUUID();
 
+/** Recursively collect all section IDs (including subsections at any depth). */
+function collectAllSectionIds(sections: TemplateBuilderSection[]): Set<string> {
+  const ids = new Set<string>();
+  const walk = (list: TemplateBuilderSection[]) => {
+    for (const s of list) {
+      ids.add(s.id);
+      if (s.subsections?.length) walk(s.subsections);
+    }
+  };
+  walk(sections);
+  return ids;
+}
+
 interface BuilderStepProps {
   initialSections?: TemplateBuilderSection[];
   onSectionsChange: (sections: TemplateBuilderSection[]) => void;
@@ -35,7 +48,7 @@ export default function BuilderStep({
   const [editingSectionIds, setEditingSectionIds] = useState<Set<string>>(new Set());
   const hydratedFromInitialRef = useRef(false);
   const initialSectionIdsRef = useRef<Set<string>>(
-    new Set(initialSections.map((section) => section.id))
+    collectAllSectionIds(initialSections)
   );
 
   const createSection = (
@@ -96,6 +109,12 @@ export default function BuilderStep({
         s.id === updatedSection.id ? updatedSection : s
       )
     );
+    // Keep preview in sync for subsection changes (subsections are part of the section object)
+    setPreviewSections((prev) =>
+      prev.map((s) =>
+        s.id === updatedSection.id ? updatedSection : s
+      )
+    );
   };
 
 
@@ -131,19 +150,27 @@ export default function BuilderStep({
     onEditingStateChange?.(editingSectionIds.size > 0);
   }, [editingSectionIds, onEditingStateChange]);
 
+  // Hydrate from parent when initialSections arrives (API response).
+  // Fires once when initialSections transitions from empty → populated,
+  // or re-fires if the parent provides a new set (e.g. route change).
   useEffect(() => {
+    if (initialSections.length === 0) return;
+
+    // Skip if already hydrated with the same data
     if (
-      !hydratedFromInitialRef.current &&
-      initialSections.length > 0 &&
-      sections.length === 0
+      hydratedFromInitialRef.current &&
+      sections.length > 0 &&
+      sections[0].id === initialSections[0]?.id
     ) {
-      setSections(initialSections);
-      setPreviewSections(initialSections);
-      initialSectionIdsRef.current = new Set(initialSections.map((section) => section.id));
-      setEditingSectionIds(new Set());
-      hydratedFromInitialRef.current = true;
+      return;
     }
-  }, [initialSections, sections.length]);
+
+    setSections(initialSections);
+    setPreviewSections(initialSections);
+    initialSectionIdsRef.current = collectAllSectionIds(initialSections);
+    setEditingSectionIds(new Set());
+    hydratedFromInitialRef.current = true;
+  }, [initialSections]);
 
   return (
     <Box

@@ -1,97 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, Button, Divider, Typography } from "@mui/material";
+import { Box, Button, Divider, Stack, Typography } from "@mui/material";
 import { useLocation, useNavigate, useParams } from "react-router";
 import MainLayout from "../../MainLayout";
 import {
-  type TenderTemplatePreviewSection,
   useGetTenderTemplateForPreviewQuery,
   useUpdateTenderTemplateMutation,
 } from "../../api/Tenders";
-import { ResponseTypeId, SectionTypeId } from "../../constants";
-import type { TemplateBuilderSection } from "../shared/types";
+import { SectionTypeId } from "../../constants";
+import type { TemplateBuilderSection, CustomToken } from "../shared/types";
 import BuilderStep from "../templates/createTemplate/builderStep/BuilderStep";
+import BasicStep from "../templates/createTemplate/BasicStep";
 import { showToast } from "../shared/ui";
 import {
-  mapApiTokensToContext,
-  mapApiTokensToOptions,
-  type ApiPlaceholderToken,
+  PLACEHOLDER_TOKEN_OPTIONS,
+  DEFAULT_TEMPLATE_TOKEN_CONTEXT,
   type TemplateTokenContext,
+  type PlaceholderTokenOption,
 } from "../../utils/templateTokens";
+import {
+  hydrateTenderSections,
+  hydrateCustomTokens,
+} from "../../utils/hydrateTemplate";
 
-const mockApiTokens: ApiPlaceholderToken[] = [
-  { key: "ORG_NAME", label: "ORG_NAME", value: "Mohawk" },
-  { key: "PROJECT_NAME", label: "PROJECT_NAME", value: "E-Tendering" },
-];
-
-const parseSectionProperties = (properties: unknown) => {
-  if (!properties) return undefined;
-
-  if (typeof properties === "string") {
-    try {
-      return JSON.parse(properties);
-    } catch {
-      return undefined;
-    }
-  }
-
-  return properties as TemplateBuilderSection["properties"];
-};
-
-const mapSectionType = (section: TenderTemplatePreviewSection) => {
-  const normalizedSectionId = Number(section.sectionId);
-
-  if (normalizedSectionId === 1 || normalizedSectionId === SectionTypeId.Statement) {
-    return SectionTypeId.Statement;
-  }
-
-  if (normalizedSectionId === 2 || normalizedSectionId === SectionTypeId.Response) {
-    return SectionTypeId.Response;
-  }
-
-  if (normalizedSectionId === 3 || normalizedSectionId === SectionTypeId.Acknowledgement) {
-    return SectionTypeId.Acknowledgement;
-  }
-
-  if (normalizedSectionId === 4 || normalizedSectionId === SectionTypeId.ESignature) {
-    return SectionTypeId.ESignature;
-  }
-
-  if (typeof section.signature === "string" && section.signature.trim() !== "") {
-    return SectionTypeId.ESignature;
-  }
-
-  if (
-    typeof section.acknowledgementStatement === "string" &&
-    section.acknowledgementStatement.trim() !== ""
-  ) {
-    return SectionTypeId.Acknowledgement;
-  }
-
-  const validResponseTypes = [
-    ResponseTypeId.Text,
-    ResponseTypeId.Numeric,
-    ResponseTypeId.List,
-  ];
-
-  if (validResponseTypes.includes(Number(section.responseType) as typeof ResponseTypeId[keyof typeof ResponseTypeId])) {
-    return SectionTypeId.Response;
-  }
-
-  return SectionTypeId.Statement;
-};
-
-const mapResponseType = (responseType: number) => {
-  const normalizedResponseType = Number(responseType);
-  const validResponseTypes = [
-    ResponseTypeId.Text,
-    ResponseTypeId.Numeric,
-    ResponseTypeId.List,
-  ];
-
-  return validResponseTypes.includes(normalizedResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId])
-    ? (normalizedResponseType as typeof ResponseTypeId[keyof typeof ResponseTypeId])
-    : undefined;
-};
+interface TemplateBasic {
+  name: string;
+  description: string;
+  type: number | "";
+}
 
 const EditTenderTemplate = () => {
   const navigate = useNavigate();
@@ -104,7 +39,16 @@ const EditTenderTemplate = () => {
     tokenContext?: TemplateTokenContext;
   } | null) ?? null;
 
+  const [activeStep, setActiveStep] = useState<"basic" | "builder">("basic");
+  const [basicData, setBasicData] = useState<TemplateBasic>({
+    name: "",
+    description: "",
+    type: "",
+  });
   const [sections, setSections] = useState<TemplateBuilderSection[]>([]);
+  const [hasEditingSections, setHasEditingSections] = useState(false);
+  const [customTokens, setCustomTokens] = useState<CustomToken[]>([]);
+
   const [updateTenderTemplate, { isLoading: isUpdatingTemplate }] =
     useUpdateTenderTemplateMutation();
 
@@ -117,96 +61,105 @@ const EditTenderTemplate = () => {
     refetchOnMountOrArgChange: true,
   });
 
-  const existingSectionIds = useMemo(
-    () =>
-      new Set(
-        (previewResponse?.data?.sections ?? [])
-          .map((section) => section.tenderTempSectionId)
-          .filter(Boolean)
-      ),
-    [previewResponse?.data?.sections]
+  const templateData = useMemo(
+    () => previewResponse?.data,
+    [previewResponse?.data]
   );
 
-  const initialSections = useMemo(() => {
-    const templateSections = [...(previewResponse?.data?.sections ?? [])].sort(
-      (a, b) => (a.sectionOrder ?? Number.MAX_SAFE_INTEGER) - (b.sectionOrder ?? Number.MAX_SAFE_INTEGER)
-    );
+  // ── Hydrate from API response ────────────────────────────────────────
+  useEffect(() => {
+    if (!templateData) return;
 
-    return templateSections.map((section: TenderTemplatePreviewSection, index: number) => {
-      const sectionTypeId = mapSectionType(section);
-      const mappedOrder =
-        typeof section.sectionOrder === "number" && section.sectionOrder > 0
-          ? section.sectionOrder
-          : index + 1;
+    // 1. Basic details
+    setBasicData({
+      name: templateData.name || "",
+      description: templateData.description || "",
+      type: templateData.typeId ?? "",
+    });
 
-      return {
-        id: section.tenderTempSectionId || crypto.randomUUID(),
-        sectionTypeId,
-        order: mappedOrder,
+    // 2. Custom tokens (recursive-safe)
+    setCustomTokens(hydrateCustomTokens(templateData.customTokens));
+
+    // 3. Sections (N-level recursive hydration)
+    setSections(hydrateTenderSections(templateData.sections));
+  }, [templateData]);
+
+  const handleBasicChange = (
+    field: "name" | "description" | "type",
+    value: string | number
+  ) => {
+    setBasicData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const isBasicValid =
+    basicData.name.trim() !== "" &&
+    basicData?.type?.toString().trim() !== "";
+
+  // ── Merged token options: built-in + custom ──────────────────────────
+  const mergedTokenOptions: PlaceholderTokenOption[] = useMemo(
+    () => [
+      ...PLACEHOLDER_TOKEN_OPTIONS,
+      ...customTokens
+        .filter((t) => t.name.trim())
+        .map((t) => ({ label: t.name.trim(), value: t.name.trim() })),
+    ],
+    [customTokens]
+  );
+
+  // ── Token context for preview resolution ─────────────────────────────
+  const tokenContext: TemplateTokenContext = useMemo(
+    () => ({
+      ...DEFAULT_TEMPLATE_TOKEN_CONTEXT,
+      TEMPLATE_NAME: basicData.name.trim(),
+      TEMPLATE_ID: templateData?.tenderTempHeaderId || tempId || undefined,
+      TENDER_ID: templateData?.tenderHeaderId || undefined,
+      ...Object.fromEntries(
+        customTokens
+          .filter((t) => t.name.trim())
+          .map((t) => [t.name.trim(), t.value.trim()])
+      ),
+      ...(routeState?.tokenContext ?? {}),
+    }),
+    [basicData.name, tempId, customTokens, templateData, routeState?.tokenContext]
+  );
+
+  // ── Recursive section serializer for API payload ─────────────────────
+  const serializeSections = (
+    secs: TemplateBuilderSection[]
+  ): any[] =>
+    [...secs]
+      .sort((a, b) => a.order - b.order)
+      .map((section, index) => ({
+        ...(section.sectionUniqueId
+          ? { id: section.sectionUniqueId }
+          : {}),
+        sectionTypeId: section.sectionTypeId,
+        sectionOrder: section.order || index + 1,
         title: section.title || "",
         content: section.content || "",
-        responseTypeId:
-          sectionTypeId === SectionTypeId.Response
-            ? mapResponseType(section.responseType)
-            : undefined,
-        properties: parseSectionProperties(section.properties),
+        responseType: section.responseTypeId ?? 0,
+        properties: section.properties
+          ? JSON.stringify(section.properties)
+          : "",
         acknowledgementStatement:
-          sectionTypeId === SectionTypeId.Acknowledgement
-            ? typeof section.acknowledgementStatement === "string"
-              ? section.acknowledgementStatement
-              : section.acknowledgementStatement
-                ? "I acknowledge"
-                : ""
+          section.sectionTypeId === SectionTypeId.Acknowledgement
+            ? section.acknowledgementStatement || ""
             : "",
         signature: section.signature || "",
-      } as TemplateBuilderSection;
-    });
-  }, [previewResponse?.data?.sections]);
+        subsections: section.subsections?.length
+          ? serializeSections(section.subsections)
+          : [],
+      }));
 
-  const builderKey = useMemo(() => {
-    const data = previewResponse?.data;
-    if (!data) return tempId || "edit-tender-template";
-
-    return [
-      data.tenderTempHeaderId,
-      data.modifiedDateTime || data.createdDateTime || "",
-      (data.sections ?? [])
-        .map((section) => `${section.tenderTempSectionId}:${section.modifiedDateTime || section.createdDateTime || ""}`)
-        .join("|"),
-    ].join("__");
-  }, [previewResponse?.data, tempId]);
-
-  const previewTokenContext = useMemo<TemplateTokenContext>(
-    () => ({
-      ...mapApiTokensToContext(mockApiTokens),
-      ...(routeState?.tokenContext ?? {}),
-      TEMPLATE_NAME:
-        previewResponse?.data?.name || routeState?.tokenContext?.TEMPLATE_NAME,
-      TEMPLATE_ID:
-        previewResponse?.data?.tenderTempHeaderId ||
-        routeState?.tokenContext?.TEMPLATE_ID,
-      TENDER_ID:
-        previewResponse?.data?.tenderHeaderId || routeState?.tokenContext?.TENDER_ID,
-    }),
-    [
-      previewResponse?.data?.name,
-      previewResponse?.data?.tenderHeaderId,
-      previewResponse?.data?.tenderTempHeaderId,
-      routeState?.tokenContext,
-    ]
-  );
-
-  const tokenOptions = useMemo(
-    () => mapApiTokensToOptions(mockApiTokens),
-    []
-  );
-
-  useEffect(() => {
-    setSections(initialSections);
-  }, [initialSections]);
-
+  // ── Save handler ─────────────────────────────────────────────────────
   const handleUpdate = async () => {
-    if (!tempId || !previewResponse?.data) return;
+    if (!tempId || !templateData) return;
+
+    if (activeStep === "basic") {
+      if (!isBasicValid) return;
+      setActiveStep("builder");
+      return;
+    }
 
     if (sections.length === 0) {
       showToast({
@@ -216,29 +169,23 @@ const EditTenderTemplate = () => {
       return;
     }
 
+    if (hasEditingSections) {
+      showToast({
+        message: "Save all sections before updating template.",
+        type: "error",
+      });
+      return;
+    }
+
     const payload = {
-      templateId: previewResponse.data.tenderTempHeaderId || tempId,
-      name: previewResponse.data.name || "",
-      description: previewResponse.data.description || "",
-      typeId: previewResponse.data.typeId || 0,
-      sections: [...sections]
-        .sort((a, b) => a.order - b.order)
-        .map((section, index) => ({
-          ...(existingSectionIds.has(section.id) ? { id: section.id } : {}),
-          sectionTypeId: section.sectionTypeId,
-          sectionOrder: section.order || index + 1,
-          title: section.title || "",
-          content: section.content || "",
-          responseType: section.responseTypeId ?? 0,
-          properties: section.properties
-            ? JSON.stringify(section.properties)
-            : "",
-          acknowledgementStatement:
-            section.sectionTypeId === SectionTypeId.Acknowledgement
-              ? section.acknowledgementStatement || ""
-              : "",
-          signature: section.signature || "",
-        })),
+      templateId: templateData.tenderTempHeaderId || tempId,
+      name: basicData.name.trim(),
+      description: basicData.description.trim(),
+      typeId: Number(basicData.type),
+      customTokens: customTokens
+        .filter((t) => t.name.trim())
+        .map((t) => ({ name: t.name.trim(), value: t.value.trim() })),
+      sections: serializeSections(sections),
     };
 
     try {
@@ -277,24 +224,76 @@ const EditTenderTemplate = () => {
     }
   };
 
+  const handleBack = () => {
+    if (activeStep === "builder") {
+      setActiveStep("basic");
+      return;
+    }
+
+    if (routeState?.fromCreateTender) {
+      navigate("/tenders/create-tender", {
+        state: {
+          activeStep: routeState.activeStep ?? 1,
+          templates: routeState.templates ?? [],
+          tokenContext: routeState.tokenContext,
+        },
+      });
+      return;
+    }
+
+    navigate(-1);
+  };
+
+  if (isError) return <div>Failed to load template</div>;
+
   return (
     <MainLayout>
       <Box sx={{ p: 4, display: "flex", flexDirection: "column", height: "100%" }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {previewResponse?.data?.name || "Edit Tender Template"}
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+          {templateData?.name || "Edit Tender Template"}
         </Typography>
 
-        <Box sx={{ mt: 3, flex: 1, minHeight: 0 }}>
+        {/* Step Tabs */}
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant={activeStep === "basic" ? "contained" : "outlined"}
+            onClick={() => setActiveStep("basic")}
+          >
+            BASIC DETAILS
+          </Button>
+          <Button
+            variant={activeStep === "builder" ? "contained" : "outlined"}
+            disabled={!isBasicValid}
+            onClick={() => setActiveStep("builder")}
+          >
+            FORM BUILDER
+          </Button>
+        </Stack>
+
+        <Box sx={{ flex: 1, minHeight: 0, pt: 3 }}>
           {isLoading && <Typography>Loading template...</Typography>}
-          {isError && <Typography color="error">Failed to load template.</Typography>}
+
           {!isLoading && !isError && (
-            <BuilderStep
-              key={builderKey}
-              initialSections={initialSections}
-              onSectionsChange={setSections}
-              tokenContext={previewTokenContext}
-              tokenOptions={tokenOptions}
-            />
+            <>
+              {activeStep === "basic" && (
+                <BasicStep
+                  data={basicData}
+                  onChange={handleBasicChange}
+                  customTokens={customTokens}
+                  onCustomTokensChange={setCustomTokens}
+                />
+              )}
+
+              {activeStep === "builder" && (
+                <BuilderStep
+                  initialSections={sections}
+                  onSectionsChange={setSections}
+                  onEditingStateChange={setHasEditingSections}
+                  tokenContext={tokenContext}
+                  tokenOptions={mergedTokenOptions}
+                />
+              )}
+            </>
           )}
         </Box>
 
@@ -302,30 +301,27 @@ const EditTenderTemplate = () => {
 
         <Box display="flex" justifyContent="space-between">
           <Button
-            onClick={() => {
-              if (routeState?.fromCreateTender) {
-                navigate("/tenders/create-tender", {
-                  state: {
-                    activeStep: routeState.activeStep ?? 1,
-                    templates: routeState.templates ?? [],
-                    tokenContext: routeState.tokenContext,
-                  },
-                });
-                return;
-              }
-
-              navigate(-1);
-            }}
+            disabled={activeStep === "basic" && !routeState?.fromCreateTender}
+            onClick={handleBack}
           >
             BACK
           </Button>
 
           <Button
             variant="contained"
-            disabled={isLoading || isUpdatingTemplate || sections.length === 0}
+            disabled={
+              isLoading ||
+              isUpdatingTemplate ||
+              (activeStep === "basic" && !isBasicValid) ||
+              (activeStep === "builder" && hasEditingSections)
+            }
             onClick={handleUpdate}
           >
-            {isUpdatingTemplate ? "UPDATING..." : "UPDATE"}
+            {activeStep === "builder"
+              ? isUpdatingTemplate
+                ? "UPDATING..."
+                : "UPDATE TEMPLATE"
+              : "NEXT"}
           </Button>
         </Box>
       </Box>

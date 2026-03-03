@@ -73,8 +73,10 @@ export const resolveTemplateTokens = (
     ...(context ?? {}),
   };
 
-  return input.replace(/{{\s*([A-Z0-9_]+)\s*}}/g, (fullMatch, rawToken) => {
-    const token = rawToken;
+  // Supports mixed-case tokens with optional spaces:
+  // {{ORG_NAME}}, {{CustomerName}}, {{Customer Name}}, etc.
+  return input.replace(/{{\s*([A-Za-z0-9_ ]+?)\s*}}/g, (fullMatch, rawToken) => {
+    const token = rawToken.trim();
 
     if (!(token in resolvedContext)) return fullMatch;
 
