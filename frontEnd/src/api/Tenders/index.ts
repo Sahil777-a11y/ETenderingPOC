@@ -61,6 +61,8 @@ export interface TenderTemplatePreviewSection {
   properties: unknown;
   acknowledgementStatement: string | boolean;
   signature: string | null;
+  parentTemplateSectionId: string | null;
+  subsections: TenderTemplatePreviewSection[];
   createdDateTime: string;
   modifiedDateTime: string | null;
 }
@@ -74,6 +76,7 @@ export interface TenderTemplatePreviewData {
   isDeleted: boolean;
   createdDateTime: string;
   modifiedDateTime: string | null;
+  customTokens?: { name: string; value: string }[];
   sections: TenderTemplatePreviewSection[];
 }
 
@@ -87,6 +90,7 @@ export interface UpdateTenderTemplateSectionPayload {
   properties: string;
   acknowledgementStatement: string;
   signature: string;
+  subsections: UpdateTenderTemplateSectionPayload[];
 }
 
 export interface UpdateTenderTemplatePayload {
@@ -94,6 +98,7 @@ export interface UpdateTenderTemplatePayload {
   name: string;
   description: string;
   typeId: number;
+  customTokens?: { name: string; value: string }[];
   sections: UpdateTenderTemplateSectionPayload[];
 }
 
