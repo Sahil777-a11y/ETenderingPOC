@@ -12,7 +12,11 @@
  */
 
 import type { TemplateSection, ApiCustomToken } from "../api/Templates";
-import type { TenderTemplatePreviewSection } from "../api/Tenders";
+import type {
+  TenderTemplatePreviewSection,
+  VendorResponsePayload,
+} from "../api/Tenders";
+import type { PreviewResponseValues } from "../components/tenders/ReadOnlyPreviewSection";
 import type {
   CustomToken,
   ResponseProperties,
@@ -213,6 +217,101 @@ export function hydrateTenderSections(
     return {
       id: uniqueId,
       // Store as sectionUniqueId so the serializer can round-trip the ID
+      sectionUniqueId: section.tenderTempSectionId || undefined,
+      sectionTypeId,
+      order,
+      title: section.title || "",
+      content: section.content || "",
+      responseTypeId,
+      properties,
+      acknowledgementStatement,
+      signature: typeof section.signature === "string" ? section.signature : "",
+      subsections: subsections.length > 0 ? subsections : undefined,
+    } satisfies TemplateBuilderSection;
+  });
+}
+
+// ── Vendor section hydration (recursive) ────────────────────────────────
+
+/**
+ * Recursively converts Vendor response sections → TemplateBuilderSection[]
+ * AND collects all existing `response` values into a flat
+ * PreviewResponseValues map (keyed by the hydrated section `id`).
+ *
+ * This lets us reuse ReadOnlyPreviewSection with isEditable=true for the
+ * vendor form without duplicating any recursion or rendering logic.
+ */
+export function hydrateVendorSections(
+  apiSections: VendorResponsePayload[] | null | undefined,
+  responseValues: PreviewResponseValues,
+  fallbackStartOrder = 1
+): TemplateBuilderSection[] {
+  if (!Array.isArray(apiSections) || apiSections.length === 0) return [];
+
+  return apiSections.map((section, index) => {
+    const order =
+      typeof section.sectionOrder === "number" && section.sectionOrder > 0
+        ? section.sectionOrder
+        : fallbackStartOrder + index;
+
+    const rawSectionType = Number(section.sectionId);
+    const rawResponseType = Number(section.responseType);
+
+    let sectionTypeId: typeof SectionTypeId[keyof typeof SectionTypeId];
+    if (isValidSectionType(rawSectionType)) {
+      sectionTypeId = rawSectionType;
+    } else if (isValidResponseType(rawResponseType)) {
+      sectionTypeId = SectionTypeId.Response;
+    } else {
+      sectionTypeId = SectionTypeId.Statement;
+    }
+
+    const responseTypeId =
+      sectionTypeId === SectionTypeId.Response && isValidResponseType(rawResponseType)
+        ? rawResponseType
+        : undefined;
+
+    const properties = safeParseProperties(section.properties);
+
+    const acknowledgementStatement =
+      sectionTypeId === SectionTypeId.Acknowledgement
+        ? typeof section.acknowledgementStatement === "string"
+          ? section.acknowledgementStatement
+          : section.acknowledgementStatement
+            ? "I acknowledge"
+            : ""
+        : "";
+
+    // Recurse into children
+    const subsections = hydrateVendorSections(
+      section.subsections,
+      responseValues
+    );
+
+    const uniqueId = section.tenderTempSectionId || crypto.randomUUID();
+
+    // ── Seed responseValues with existing vendor answers ─────────────
+    if (section.response !== undefined && section.response !== null && section.response !== "") {
+      // Acknowledgement: normalize string "true"/"false" to boolean
+      if (sectionTypeId === SectionTypeId.Acknowledgement) {
+        responseValues[uniqueId] =
+          section.response === true || section.response === "true";
+      } else {
+        responseValues[uniqueId] = section.response;
+      }
+    }
+    // For e-signature, also seed from signature field if response is empty
+    if (
+      sectionTypeId === SectionTypeId.ESignature &&
+      !responseValues[uniqueId] &&
+      typeof section.signature === "string" &&
+      section.signature
+    ) {
+      responseValues[uniqueId] = section.signature;
+    }
+
+    return {
+      id: uniqueId,
       sectionUniqueId: section.tenderTempSectionId || undefined,
       sectionTypeId,
       order,

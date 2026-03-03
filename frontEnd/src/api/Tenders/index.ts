@@ -134,6 +134,8 @@ export interface VendorResponsePayload {
   signature: string;
   response?: string | number | boolean | null;
   sectionOrder?: number;
+  parentTemplateSectionId?: string | null;
+  subsections?: VendorResponsePayload[];
   createdDateTime: string;
   modifiedDateTime: string | null;
 }
@@ -147,6 +149,7 @@ export interface VendorResponseTemplatePayload {
   isDeleted: boolean;
   createdDateTime: string;
   modifiedDateTime: string | null;
+  customTokens?: { name: string; value: string }[];
   sections: VendorResponsePayload[];
 }
 
