@@ -26,6 +26,10 @@
         public string? Properties { get; set; }
         public string? AcknowledgementStatement { get; set; }
         public string? Signature { get; set; }
-        public Guid? ParentTemplateSectionId { get; set; }
+
+        /// <summary>
+        /// Nested subsections - required for deserializing nested JSON from front-end
+        /// </summary>
+        public List<UpdateTenderTemplateSectionDto>? Subsections { get; set; }
     }
 }

@@ -95,10 +95,16 @@ namespace eTendering.Infrastructure.Service
 
         public async Task<Guid> UpdateTenderTemplateAsync(UpdateTenderTemplateRequestDto request)
         {
+            // ✅ Step 1: Assign temp IDs to new sections (so children can reference parents)
+            AssignTempIdsToNewSections(request.Sections);
+
+            // ✅ Step 2: Flatten nested structure
+            var flatSections = FlattenSections(request.Sections);
+
             var fullPayload = new
             {
                 customTokens = request.CustomTokens ?? new List<CustomTokenDto>(),
-                sections = request.Sections
+                sections = flatSections
             };
 
             var jsonPayload = JsonConvert.SerializeObject(fullPayload);
@@ -111,6 +117,58 @@ namespace eTendering.Infrastructure.Service
                 request.TypeId,
                 Sections = jsonPayload
             });
+        }
+
+        /// <summary>
+        /// Assigns temporary GUIDs to sections without an ID
+        /// </summary>
+        private void AssignTempIdsToNewSections(List<UpdateTenderTemplateSectionDto> sections)
+        {
+            foreach (var section in sections)
+            {
+                if (section.Id == null || section.Id == Guid.Empty)
+                {
+                    section.Id = Guid.NewGuid();
+                }
+
+                if (section.Subsections != null && section.Subsections.Any())
+                {
+                    AssignTempIdsToNewSections(section.Subsections);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Flattens nested sections into a flat list with ParentTemplateSectionId
+        /// </summary>
+        private List<object> FlattenSections(List<UpdateTenderTemplateSectionDto> sections, Guid? parentId = null)
+        {
+            var flatList = new List<object>();
+
+            foreach (var section in sections)
+            {
+                flatList.Add(new
+                {
+                    id = section.Id,
+                    sectionTypeId = section.SectionTypeId,
+                    sectionOrder = section.SectionOrder,
+                    title = section.Title,
+                    content = section.Content,
+                    responseType = section.ResponseType,
+                    properties = section.Properties,
+                    acknowledgementStatement = section.AcknowledgementStatement,
+                    signature = section.Signature,
+                    parentTemplateSectionId = parentId  // ✅ Set parent reference
+                });
+
+                if (section.Subsections != null && section.Subsections.Any())
+                {
+                    // ✅ Recursively flatten children with this section's ID as parent
+                    flatList.AddRange(FlattenSections(section.Subsections, section.Id));
+                }
+            }
+
+            return flatList;
         }
 
         public async Task<(int totalRecords, GenericResponseDto<IEnumerable<TenderListDto>>)> GetTenderListAsync(int pageNumber, int pageSize)
